@@ -173,9 +173,14 @@ class ContentExtractor:
                 Logger.log(f"Access denied: path outside allowed directories", config)
                 return None
 
-            # Check for EPUB files
-            if source.lower().endswith(".epub"):
+            # Check file type
+            source_lower = source.lower()
+
+            if source_lower.endswith(".epub"):
                 return cls._extract_epub(str(resolved_path), config)
+
+            if source_lower.endswith(".pdf"):
+                return cls._extract_pdf(str(resolved_path), config)
 
             # Default: read as plain text
             try:
@@ -186,38 +191,184 @@ class ContentExtractor:
 
         return source
 
+    # Patterns for front matter to skip (matched against filename and title)
+    # Use word boundaries to avoid false positives
+    FRONT_MATTER_PATTERNS = [
+        r'(?:^|[/\s])toc(?:[/\s\.]|$)',  # TOC as standalone word
+        r'table\s+of\s+contents?',
+        r'\bpreface\b', r'\bforeword\b', r'\bprologue\b',
+        r'\bcopyright\b', r'\bdedication\b',
+        r'about\s+the\s+author', r'about\s+the\s+publisher',
+        r'\backnowledge?ments?\b', r'\bcredits\b',
+        r'\bcover(?:\s+page)?\b', r'\btitle\s+page\b',
+        r'\bepigraph\b', r'\bfrontispiece\b',
+        r'series\s+page', r'also\s+by\s+\w', r'praise\s+for',
+        r'advanced\s+praise', r'\bendorsements?\b',
+        r'\bappendix\b', r'\bbibliography\b',
+        r'\bindex\b', r'\bglossary\b', r'\breferences?\b',
+    ]
+
+    @staticmethod
+    def _is_front_matter(filename: str, title: str = "") -> bool:
+        """Check if a document is front/back matter to skip."""
+        import re
+
+        check = f"{filename} {title}".lower()
+
+        for pattern in ContentExtractor.FRONT_MATTER_PATTERNS:
+            if re.search(pattern, check, re.IGNORECASE):
+                return True
+
+        return False
+
     @staticmethod
     def _extract_epub(path: str, config: TTSConfig) -> Optional[str]:
-        """Extract text content from EPUB file."""
+        """Extract text content from EPUB file, skipping front/back matter."""
         try:
             import ebooklib
             from ebooklib import epub
             from bs4 import BeautifulSoup
 
             book = epub.read_epub(path)
-            text_parts = []
 
+            # Collect all document items with their metadata
+            documents = []
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                    soup = BeautifulSoup(item.get_content(), "html.parser")
-                    # Remove script and style elements
-                    for script in soup(["script", "style", "nav"]):
-                        script.decompose()
-                    text = soup.get_text(separator=" ")
-                    # Clean up whitespace
-                    text = " ".join(text.split())
-                    if text.strip():
-                        text_parts.append(text.strip())
+                    # Get filename/id
+                    filename = item.get_name() or item.get_id() or ""
+                    documents.append((filename, item))
 
-            return " ".join(text_parts)
+            # Separate front matter from main content
+            main_content = []
+            found_chapter = False
+            skip_count = 0
+
+            for filename, item in documents:
+                # Parse content
+                soup = BeautifulSoup(item.get_content(), "html.parser")
+
+                # Get title from first heading
+                title = ""
+                for tag in ['h1', 'h2', 'title']:
+                    heading = soup.find(tag)
+                    if heading:
+                        title = heading.get_text(strip=True)
+                        break
+
+                # Check if this is front matter
+                is_front = ContentExtractor._is_front_matter(filename, title)
+
+                # Also skip very short documents at the start (likely copyright, etc.)
+                text = soup.get_text(separator=" ")
+                clean_text = " ".join(text.split())
+                word_count = len(clean_text.split())
+
+                if not found_chapter:
+                    if is_front or (word_count < 100 and skip_count < 5):
+                        skip_count += 1
+                        if config.verbose:
+                            print(f"  Skipping: {filename} ({word_count} words)")
+                        continue
+                    else:
+                        found_chapter = True
+
+                # Remove script and style elements
+                for script in soup(["script", "style", "nav"]):
+                    script.decompose()
+
+                text = soup.get_text(separator=" ")
+                text = " ".join(text.split())
+
+                if text.strip() and word_count >= 20:
+                    main_content.append(text.strip())
+
+            return " ".join(main_content)
 
         except ImportError:
             Logger.log("ebooklib or beautifulsoup4 required for EPUB support", config)
             print("Install with: pip install ebooklib beautifulsoup4")
             return None
         except (OSError, ValueError, KeyError, AttributeError) as e:
-            # Specific exceptions: file errors, parsing errors, missing keys
             Logger.log(f"EPUB read error: {e}", config)
+            return None
+
+    @staticmethod
+    def _extract_pdf(path: str, config: TTSConfig) -> Optional[str]:
+        """Extract text from PDF, skipping front matter (first few pages)."""
+        try:
+            import subprocess
+
+            # Check for pdftotext
+            if not shutil.which("pdftotext"):
+                Logger.log("pdftotext required for PDF support", config)
+                print("Install with: sudo apt install poppler-utils")
+                return None
+
+            # Get page count
+            result = subprocess.run(
+                ["pdfinfo", path],
+                capture_output=True, text=True, timeout=10
+            )
+
+            page_count = 0
+            for line in result.stdout.split('\n'):
+                if line.startswith('Pages:'):
+                    page_count = int(line.split(':')[1].strip())
+                    break
+
+            if page_count == 0:
+                # Fallback: try reading whole file
+                result = subprocess.run(
+                    ["pdftotext", "-layout", path, "-"],
+                    capture_output=True, text=True, timeout=60
+                )
+                return result.stdout.strip()
+
+            # Skip first 2-3 pages for typical books (TOC, copyright)
+            # For short documents (< 10 pages), skip only first page
+            skip_pages = min(3, max(1, page_count // 10))
+
+            # Extract text from remaining pages
+            # pdftotext doesn't support page ranges directly, so we extract all
+            result = subprocess.run(
+                ["pdftotext", "-layout", path, "-"],
+                capture_output=True, text=True, timeout=120
+            )
+
+            text = result.stdout.strip()
+
+            # Try to find where actual content starts by looking for chapter markers
+            lines = text.split('\n')
+            content_start = 0
+            found_chapter = False
+
+            # Look for common chapter indicators
+            chapter_patterns = [
+                r'^chapter\s+\d+',
+                r'^chapter\s+one\b',
+                r'^part\s+one\b',
+                r'^1\s*$',
+                r'^\d+\.\s+\w',  # Numbered sections
+            ]
+
+            for i, line in enumerate(lines[:100]):  # Check first 100 lines
+                line_stripped = line.strip().lower()
+                for pattern in chapter_patterns:
+                    if re.match(pattern, line_stripped):
+                        content_start = i
+                        found_chapter = True
+                        break
+                if found_chapter:
+                    break
+
+            if content_start > 0:
+                text = '\n'.join(lines[content_start:])
+
+            return text
+
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            Logger.log(f"PDF read error: {e}", config)
             return None
 
 
