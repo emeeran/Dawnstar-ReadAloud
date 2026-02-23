@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Linux Text-to-Speech (TTS) command-line application that reads text from files, PDFs, URLs, or direct input. It features smart caching, multi-language support (US English, UK English, Tamil), and deep system integration including global keyboard shortcuts for reading selected text.
+This is a Linux Text-to-Speech (TTS) command-line application that reads text from files, PDFs, EPUBs, URLs, or direct input. It features smart caching, multi-language support (US English, UK English, Tamil), and deep system integration including global keyboard shortcuts for reading selected text.
 
-**Core Architecture**: Single-file Python application (`app.py`) with modular classes. The app uses Edge TTS (Microsoft Azure neural voices) as the primary engine, with gTTS as fallback.
+**Core Architecture**: Modular Python application with a `core/` package containing distinct modules for each responsibility. The app uses Edge TTS (Microsoft Azure neural voices) as the primary engine, with gTTS and eSpeak as fallbacks.
 
 ## Common Commands
 
@@ -14,8 +14,8 @@ This is a Linux Text-to-Speech (TTS) command-line application that reads text fr
 ```bash
 # Install dependencies
 sudo apt install mpg123 xclip poppler-utils
-python3 -m venv venv
-./venv/bin/pip install -r requirements.txt
+python3 -m venv .venv
+./.venv/bin/pip install -e ".[dev]"
 
 # Run the application
 ./tts document.txt                    # Read a file
@@ -24,43 +24,70 @@ python3 -m venv venv
 ./tts -l en-uk -s fast text           # Language and speed options
 ./tts --clear-cache                   # Clear audio cache
 
+# Run tests
+./.venv/bin/python -m pytest tests/ -v
+
 # System integration
 python3 configure.py                  # Install keyboard shortcuts and desktop entry
 ```
 
 ### Docker
 ```bash
-docker build -t enhanced-tts .
-docker run --rm -i --device /dev/snd enhanced-tts "Hello world"
+docker build -t dawnstar-readaloud .
+docker run --rm -i --device /dev/snd dawnstar-readaloud "Hello world"
 ```
 
 ## Architecture
 
-### Main Components (app.py)
+### Project Structure
 
-The application is organized into distinct classes, each with a single responsibility:
+```
+dawnstar-readaloud/
+├── app.py              # Main entry point
+├── config.py           # Application configuration (YAML-based)
+├── configure.py        # System integration setup
+├── tts_platform.py     # [DEPRECATED] Backward compatibility wrapper
+├── core/               # Core TTS modules
+│   ├── __init__.py     # Package exports
+│   ├── cli.py          # Command-line interface
+│   ├── config.py       # Runtime TTS configuration
+│   ├── constants.py    # Application constants
+│   ├── engine.py       # TTS backends (Edge, gTTS, eSpeak)
+│   ├── exceptions.py   # Custom exception hierarchy
+│   ├── extractor.py    # Content extraction facade
+│   ├── document_readers.py  # EPUB/PDF extraction
+│   ├── source_loader.py     # File/URL loading
+│   ├── text_processing.py   # Text cleaning/chunking
+│   ├── logger.py       # Verbose logging
+│   ├── player.py       # Audio playback
+│   ├── platform.py     # Cross-platform detection
+│   └── runtime.py      # Cache/Notification managers
+├── ttsd/               # Optional daemon for low-latency
+│   ├── __init__.py     # Daemon exports
+│   ├── daemon.py       # Queue-based TTS daemon
+│   └── ipc.py          # Unix socket IPC
+└── tests/              # Test suite
+```
 
-1. **`TTSConfig`** (dataclass): Configuration holder - language, speed, caching, verbosity. Normalizes language aliases (e.g., `en` → `en-us`).
+### Main Components (core/)
 
-2. **`ContentExtractor`**: Handles all input sources and text processing:
-   - Input sources: files, URLs, PDFs, stdin (`-`), direct text
-   - `clean_text()`: Removes URLs, emails, normalizes whitespace
-   - `chunk_text()`: Splits text at sentence boundaries (500 char chunks) for better TTS
-   - `from_url()`: HTML parsing with script/style/nav filtering, plus lynx/curl/wget fallback
-   - `from_pdf()`: Uses pdftotext, removes TOC and header lines
-   - `_clean_content()`: Removes front-matter junk (TOC entries, copyright, ISBN)
+The application is organized into distinct modules, each with a single responsibility:
 
-3. **`TTSEngine`**: Speech generation with dual-engine fallback:
-   - Primary: Edge TTS (Azure neural voices via `edge-tts` binary)
-   - Fallback: gTTS (Google TTS, lazily imported)
-   - Caching: MD5-based cache in `~/.cache/tts_app/` using `text + lang + speed` as key
-   - Auto-detects edge-tts binary in venv (`sys.executable` parent directory)
+1. **`core/config.py`** - `TTSConfig` dataclass: Runtime configuration for language, speed, caching, verbosity. Normalizes language aliases (e.g., `en` → `en-us`).
 
-4. **`AudioPlayer`**: Auto-detects and plays audio through available players:
-   - Priority: mpg123 → cvlc → ffplay
-   - Uses temporary files for playback
+2. **`core/extractor.py`** - `ContentExtractor` facade: Handles all input sources and text processing.
 
-5. **`Logger`**: Verbose logging with emoji prefixes (✓ info, ✗ error)
+3. **`core/engine.py`** - `TTSEngine` with pluggable backends:
+   - `EdgeTTSBackend`: Azure neural voices (primary)
+   - `GTTSBackend`: Google TTS (fallback)
+   - `EspeakBackend`: Local eSpeak (last resort)
+   - MD5-based caching in `~/.cache/tts_app/`
+
+4. **`core/player.py`** - `AudioPlayer`: Auto-detects and plays audio (mpg123 → paplay → cvlc → ffplay).
+
+5. **`core/platform.py`** - Cross-platform detection for display server, desktop environment, and clipboard.
+
+6. **`core/exceptions.py`** - Custom exception hierarchy: `TTSError`, `EngineError`, `PlaybackError`, etc.
 
 ### Data Flow
 ```
@@ -70,31 +97,28 @@ TTSEngine (with caching) → AudioPlayer → System Sound
 
 ### Language Configuration
 
-Languages are defined in `LANG_CONFIG` (app.py:29-33). Each language maps to an Edge TTS voice and a gTTS fallback TLD. To add a language, add an entry here with the voice name and fallback TLD.
+Languages are defined in `core/constants.py` `LANG_CONFIG`. Each language maps to an Edge TTS voice and a gTTS fallback TLD. To add a language, add an entry there.
 
 ### System Integration (configure.py)
 
 The `configure.py` script sets up:
-- GNOME keyboard shortcuts via gsettings (Ctrl+Alt+S for speak, Ctrl+Alt+Q for stop)
+- Desktop environment keyboard shortcuts (Ctrl+Alt+S for speak, Ctrl+Alt+Q for stop)
 - Desktop entry in `~/.local/share/applications/`
-- Installs wrapper scripts to `~/.local/bin/`
-
-The script preserves custom0 (reserved for Flameshot) and uses custom1 and custom2.
+- Wrapper scripts in `~/.local/bin/`
 
 ## Key Implementation Details
 
-- **Chunking**: Text is split at sentence boundaries (`. ! ? ; : , space`) to maintain natural speech rhythm
+- **Chunking**: Text is split at sentence boundaries (`. ! ?`) to maintain natural speech rhythm
 - **Cache Key**: `md5(text + lang + speed)` ensures different settings generate different audio
-- **Edge TTS Binary Detection**: Checks `Path(sys.executable).parent / 'edge-tts'` for venv-installed binary
-- **PDF TOC Removal**: Filters lines ending in dots+numbers and standalone Roman numerals
-- **HTML Parsing**: Custom HTMLParser class skips script/style/nav/header/footer/aside tags
+- **Clipboard Priority**: On X11, primary selection (highlighted text) is prioritized over clipboard (Ctrl+C)
+- **EPUB Processing**: Skips front matter (TOC, preface, copyright) based on filename/title heuristics
 - **Language Mapping**: Supports aliases like `en` → `en-us`, `en-gb` → `en-uk`
 
 ## Dependencies
 
-**Python**: `edge-tts>=6.1.9`, `gtts==2.5.4`
+**Python**: `edge-tts>=6.1.9`, `gtts>=2.5.4`, `ebooklib>=0.18`, `beautifulsoup4>=4.12.0`, `pyyaml>=6.0`, `pyperclip>=1.8.2`, `pypdf>=6.7.1`
 
-**System**: `mpg123` (recommended), `xclip` (for keyboard shortcuts), `poppler-utils` (PDF support), `lynx` (web fallback)
+**System**: `mpg123` (recommended), `xclip` or `wl-clipboard` (for keyboard shortcuts), `poppler-utils` (PDF support)
 
 # Project Rules & Guidelines
 

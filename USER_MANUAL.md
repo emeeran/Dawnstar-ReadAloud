@@ -94,7 +94,11 @@ python3 -m venv .venv
 ### Step 3: Install Python Dependencies
 
 ```bash
-./.venv/bin/pip install -r requirements.txt
+# Install the package in editable mode
+./.venv/bin/pip install -e .
+
+# Or install with development dependencies (for contributors)
+./.venv/bin/pip install -e ".[dev]"
 ```
 
 **Python Packages:**
@@ -106,6 +110,8 @@ python3 -m venv .venv
 | `ebooklib` | EPUB ebook support |
 | `beautifulsoup4` | HTML parsing for EPUB extraction |
 | `pyyaml` | Configuration file parsing |
+| `pyperclip` | Cross-platform clipboard access |
+| `pypdf` | PDF text extraction |
 
 ### Step 4: Verify Installation
 
@@ -416,13 +422,14 @@ Source: file
 ### How Selection Works
 
 **X11 (Traditional):**
-- Highlight text (primary selection) OR
-- Copy text with Ctrl+C (clipboard selection)
-- Press `Ctrl+Alt+S`
+1. Highlight text with mouse (primary selection) - **recommended**
+2. Or copy text with Ctrl+C (clipboard selection)
+3. Press `Ctrl+Alt+S`
+4. The highlighted text is prioritized over copied text
 
 **Wayland:**
-- Copy text with Ctrl+C
-- Press `Ctrl+Alt+S`
+1. Copy text with Ctrl+C
+2. Press `Ctrl+Alt+S`
 
 ### Installing Shortcuts
 
@@ -830,7 +837,7 @@ cache_max_size_mb: 200
 **Solutions:**
 ```bash
 # Reinstall dependencies
-./.venv/bin/pip install -r requirements.txt
+./.venv/bin/pip install -e .
 
 # Verify installation
 ./.venv/bin/pip show edge-tts
