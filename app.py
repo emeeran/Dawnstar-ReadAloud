@@ -149,13 +149,37 @@ class ContentExtractor:
         source = source.strip().strip("'").strip('"')
 
         if os.path.exists(source):
+            # Validate path - resolve and check it's safe
+            try:
+                resolved_path = Path(source).resolve()
+            except (OSError, ValueError) as e:
+                Logger.log(f"Invalid path: {e}", config)
+                return None
+
+            # Security check: prevent reading sensitive system files
+            # Allow only: user home, /tmp, /var/tmp, and relative paths
+            home = Path.home()
+            allowed_prefixes = [home, Path("/tmp"), Path("/var/tmp")]
+
+            is_allowed = any(
+                str(resolved_path).startswith(str(p)) for p in allowed_prefixes
+            )
+
+            # Also allow relative paths in current directory
+            if not is_allowed and not source.startswith("/"):
+                is_allowed = True
+
+            if not is_allowed:
+                Logger.log(f"Access denied: path outside allowed directories", config)
+                return None
+
             # Check for EPUB files
             if source.lower().endswith(".epub"):
-                return cls._extract_epub(source, config)
+                return cls._extract_epub(str(resolved_path), config)
 
             # Default: read as plain text
             try:
-                return Path(source).read_text(encoding="utf-8", errors="ignore")
+                return resolved_path.read_text(encoding="utf-8", errors="ignore")
             except OSError as e:
                 Logger.log(f"Read error: {e}", config)
                 return None
@@ -191,7 +215,8 @@ class ContentExtractor:
             Logger.log("ebooklib or beautifulsoup4 required for EPUB support", config)
             print("Install with: pip install ebooklib beautifulsoup4")
             return None
-        except Exception as e:
+        except (OSError, ValueError, KeyError, AttributeError) as e:
+            # Specific exceptions: file errors, parsing errors, missing keys
             Logger.log(f"EPUB read error: {e}", config)
             return None
 
@@ -512,8 +537,21 @@ class TTSEngine:
                     self._backends.append(backend)
         return self._backends
 
+    # Limits for safety
+    MAX_TEXT_LENGTH = 50000  # ~50KB of text max
+    GENERATION_TIMEOUT = 60  # seconds
+
     def generate(self, text: str) -> Optional[bytes]:
         """Generate audio for text, using cache if available."""
+        # Input validation
+        if not text or not text.strip():
+            return None
+
+        # Truncate excessively long text to prevent resource exhaustion
+        if len(text) > self.MAX_TEXT_LENGTH:
+            text = text[:self.MAX_TEXT_LENGTH]
+            Logger.log(f"Text truncated to {self.MAX_TEXT_LENGTH} chars", self.config)
+
         cache_key = hashlib.md5(
             f"{text}_{self.config.lang}_{self.config.speed}".encode()
         ).hexdigest()
@@ -532,7 +570,10 @@ class TTSEngine:
                     cache_file.write_bytes(data)
                 Logger.log(f"Generated with {backend.get_name()}", self.config)
                 return data
-            except (subprocess.CalledProcessError, OSError, RuntimeError):
+            except (subprocess.CalledProcessError, OSError, RuntimeError,
+                    subprocess.TimeoutExpired) as e:
+                if self.config.verbose:
+                    print(f"  Backend {backend.get_name()} failed: {e}")
                 continue
 
         return None
