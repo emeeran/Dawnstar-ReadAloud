@@ -19,3 +19,6 @@ venv/
 # Build artifacts
 claude_generated/
 claude_generated.zip
+
+# Review/archive
+trash2review/
