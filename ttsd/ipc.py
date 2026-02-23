@@ -131,9 +131,9 @@ class UnixSocketServer:
                     return {"status": "ok", "job_id": job_id}
 
                 case "speak-selection":
-                    import tts_platform
+                    from core.platform import get_clipboard_text
 
-                    text = tts_platform.get_clipboard_text()
+                    text = get_clipboard_text()
                     if not text:
                         return {"status": "error", "message": "No text in clipboard"}
 

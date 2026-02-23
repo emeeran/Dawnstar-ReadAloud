@@ -7,19 +7,29 @@ speech synthesis.
 """
 
 import os
-import sys
 import queue
 import signal
+import subprocess
+import sys
 import threading
-from enum import Enum
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 # Import from parent module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core import AudioPlayer, ContentExtractor, LANG_CONFIG, TTSConfig, TTSEngine
+from core import (
+    AudioPlayer,
+    ContentExtractor,
+    EngineError,
+    IPCError,
+    LANG_CONFIG,
+    PlaybackError,
+    TTSConfig,
+    TTSEngine,
+)
 
 
 class DaemonState(Enum):
@@ -200,17 +210,26 @@ class TTSDaemon:
 
     def _kill_playback(self) -> None:
         """Kill any active audio playback."""
-        import subprocess
-
         for player in ["mpg123", "cvlc", "ffplay", "aplay", "paplay"]:
-            subprocess.run(
-                ["pkill", "-f", player],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            try:
+                subprocess.run(
+                    ["pkill", "-f", player],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=2,
+                )
+            except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                pass
 
     def _process_job(self, job: Job) -> bool:
-        """Process a single TTS job."""
+        """Process a single TTS job.
+
+        Args:
+            job: The job to process.
+
+        Returns:
+            True if job completed successfully, False otherwise.
+        """
         job.status = "processing"
         self.current_job = job
 
@@ -237,6 +256,7 @@ class TTSDaemon:
                 audio = self.engine.generate(chunk)
                 if not audio:
                     job.status = "error"
+                    job.progress = (i + 1) / total_chunks
                     return False
 
                 # Update progress
@@ -254,8 +274,14 @@ class TTSDaemon:
             job.progress = 1.0
             return True
 
-        except Exception as e:
+        except (EngineError, PlaybackError, OSError, RuntimeError) as e:
             job.status = f"error: {str(e)}"
+            return False
+        except Exception as e:
+            # Catch-all for unexpected errors, but log them properly
+            job.status = f"error: {str(e)}"
+            if self.config.verbose:
+                print(f"Unexpected error in job {job.job_id}: {type(e).__name__}: {e}")
             return False
         finally:
             if self.on_job_complete:
@@ -301,9 +327,15 @@ class TTSDaemon:
                 elif cmd.action == "shutdown":
                     self._running = False
 
-            except Exception as e:
+            except (queue.Empty, KeyboardInterrupt):
+                continue
+            except (OSError, RuntimeError) as e:
                 if self.config.verbose:
                     print(f"Daemon error: {e}")
+            except Exception as e:
+                # Log unexpected errors but keep daemon running
+                if self.config.verbose:
+                    print(f"Unexpected daemon error: {type(e).__name__}: {e}")
 
     def shutdown(self) -> None:
         """Gracefully shutdown the daemon."""

@@ -1,15 +1,33 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "dawnstar-readaloud"
-version = "1.0.0"
-description = "Enhanced Text-to-Speech Application"
+version = "1.1.0"
+description = "Enhanced Text-to-Speech Application with neural voices and smart document reading"
 readme = "README.md"
+license = {text = "MIT"}
 requires-python = ">=3.12"
+authors = [
+    {name = "Dawnstar ReadAloud Contributors"}
+]
+keywords = ["tts", "text-to-speech", "accessibility", "edge-tts", "epub", "pdf"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Accessibility",
+]
+
 dependencies = [
-    "gtts==2.5.4",
+    "gtts>=2.5.4",
     "edge-tts>=6.1.9",
     "ebooklib>=0.18",
     "beautifulsoup4>=4.12.0",
@@ -18,6 +36,88 @@ dependencies = [
     "pypdf>=6.7.1"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "ruff>=0.2.0",
+    "types-PyYAML>=6.0.0",
+    "types-beautifulsoup4>=4.12.0",
+]
+
 [project.scripts]
 tts = "app:main"
 ttsd = "ttsd.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/example/dawnstar-readaloud"
+Documentation = "https://github.com/example/dawnstar-readaloud#readme"
+Repository = "https://github.com/example/dawnstar-readaloud"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "ttsd*"]
+
+[tool.setuptools.package-data]
+core = ["py.typed"]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["core", "ttsd", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument
+    "B905",   # zip without strict
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "ttsd"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["core", "ttsd"]
+branch = true
+omit = ["tests/*", "*/__main__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]

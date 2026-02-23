@@ -1,6 +1,7 @@
 """TTS backend engines and caching orchestration."""
 
 import asyncio
+import hashlib
 import importlib.util
 import shutil
 import subprocess
@@ -19,6 +20,7 @@ from .constants import (
     TEMP_FILE_SUFFIX,
     WAV_SUFFIX,
 )
+from .exceptions import EngineError, PlaybackError
 from .logger import Logger
 
 
@@ -174,9 +176,9 @@ class TTSEngine:
             text = text[:self.MAX_TEXT_LENGTH]
             Logger.log(f"Text truncated to {self.MAX_TEXT_LENGTH} chars", self.config)
 
-        cache_key = importlib.util.source_hash(
+        cache_key = hashlib.md5(
             f"{text}_{self.config.lang}_{self.config.speed}".encode()
-        ).hex()
+        ).hexdigest()
         cache_file = CACHE_DIR / f"{cache_key}{TEMP_FILE_SUFFIX}"
 
         if self.config.cache_enabled and cache_file.exists():
