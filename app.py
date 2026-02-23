@@ -41,7 +41,10 @@ SENTENCE_BREAK_CHARS = [". ", "! ", "? ", "; ", ": ", ", ", " "]
 
 
 def find_edge_tts_binary() -> Optional[str]:
-    """Find edge-tts binary in venv or system PATH."""
+    """Find edge-tts binary in venv or system PATH (cached)."""
+    if find_edge_tts_binary._cached is not None:
+        return find_edge_tts_binary._cached
+
     script_dir = Path(__file__).parent
     search_paths = [
         script_dir / "venv" / "bin" / "edge-tts",
@@ -50,8 +53,15 @@ def find_edge_tts_binary() -> Optional[str]:
     ]
     for path in search_paths:
         if path.exists():
-            return str(path)
-    return shutil.which("edge-tts")
+            find_edge_tts_binary._cached = str(path)
+            return find_edge_tts_binary._cached
+
+    result = shutil.which("edge-tts")
+    find_edge_tts_binary._cached = result
+    return result
+
+
+find_edge_tts_binary._cached = None  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -87,14 +97,19 @@ class Logger:
         print(f"✗ {msg}")
 
 
+# Pre-compiled regex patterns for text cleaning
+_RE_URL = re.compile(r"http[s]?://\S+")
+_RE_EMAIL = re.compile(r"\S+@\S+")
+
+
 class ContentExtractor:
     """Extract and process text content from various sources."""
 
     @staticmethod
     def clean_text(text: str) -> str:
         """Remove URLs, emails, and normalize whitespace."""
-        text = re.sub(r"http[s]?://\S+", "", text)
-        text = re.sub(r"\S+@\S+", "", text)
+        text = _RE_URL.sub("", text)
+        text = _RE_EMAIL.sub("", text)
         return text.strip()
 
     @staticmethod
@@ -246,12 +261,22 @@ class EdgeTTSBackend(TTSBackend):
 class GTTSBackend(TTSBackend):
     """Google Text-to-Speech backend."""
 
+    # Cache availability check result
+    _available: Optional[bool] = None
+
     def is_available(self) -> bool:
+        """Check if gtts is available (cached result)."""
+        if GTTSBackend._available is not None:
+            return GTTSBackend._available
+
         try:
-            import gtts  # noqa: F401
-            return True
-        except ImportError:
-            return False
+            import importlib.util
+            spec = importlib.util.find_spec("gtts")
+            GTTSBackend._available = spec is not None
+        except (ImportError, ValueError):
+            GTTSBackend._available = False
+
+        return GTTSBackend._available
 
     def generate_audio(self, text: str) -> bytes:
         from gtts import gTTS
@@ -274,11 +299,22 @@ class GTTSBackend(TTSBackend):
 class EspeakBackend(TTSBackend):
     """eSpeak-ng backend for basic TTS."""
 
+    _binary_cache: Optional[str] = None
+
+    @classmethod
+    def _find_binary(cls) -> Optional[str]:
+        """Find espeak binary (cached)."""
+        if cls._binary_cache is not None:
+            return cls._binary_cache if cls._binary_cache else None
+
+        cls._binary_cache = shutil.which("espeak-ng") or shutil.which("espeak") or ""
+        return cls._binary_cache if cls._binary_cache else None
+
     def is_available(self) -> bool:
-        return shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None
+        return self._find_binary() is not None
 
     def generate_audio(self, text: str) -> bytes:
-        espeak_bin = shutil.which("espeak-ng") or shutil.which("espeak")
+        espeak_bin = self._find_binary()
         if not espeak_bin:
             raise RuntimeError("espeak binary not found")
 
