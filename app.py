@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import tts_platform
+from config import TTSAppConfig, generate_sample_config, CONFIG_DIR
 
 # Constants
 CACHE_DIR = Path.home() / ".cache" / "tts_app"
@@ -148,6 +149,11 @@ class ContentExtractor:
         source = source.strip().strip("'").strip('"')
 
         if os.path.exists(source):
+            # Check for EPUB files
+            if source.lower().endswith(".epub"):
+                return cls._extract_epub(source, config)
+
+            # Default: read as plain text
             try:
                 return Path(source).read_text(encoding="utf-8", errors="ignore")
             except OSError as e:
@@ -155,6 +161,39 @@ class ContentExtractor:
                 return None
 
         return source
+
+    @staticmethod
+    def _extract_epub(path: str, config: TTSConfig) -> Optional[str]:
+        """Extract text content from EPUB file."""
+        try:
+            import ebooklib
+            from ebooklib import epub
+            from bs4 import BeautifulSoup
+
+            book = epub.read_epub(path)
+            text_parts = []
+
+            for item in book.get_items():
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    soup = BeautifulSoup(item.get_content(), "html.parser")
+                    # Remove script and style elements
+                    for script in soup(["script", "style", "nav"]):
+                        script.decompose()
+                    text = soup.get_text(separator=" ")
+                    # Clean up whitespace
+                    text = " ".join(text.split())
+                    if text.strip():
+                        text_parts.append(text.strip())
+
+            return " ".join(text_parts)
+
+        except ImportError:
+            Logger.log("ebooklib or beautifulsoup4 required for EPUB support", config)
+            print("Install with: pip install ebooklib beautifulsoup4")
+            return None
+        except Exception as e:
+            Logger.log(f"EPUB read error: {e}", config)
+            return None
 
 
 class AudioPlayer:
@@ -336,6 +375,123 @@ class EspeakBackend(TTSBackend):
             os.unlink(temp_path)
 
 
+class NotificationManager:
+    """Desktop notification support."""
+
+    _enabled: bool = True
+    _available: Optional[bool] = None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Check if notify-send is available."""
+        if cls._available is None:
+            cls._available = shutil.which("notify-send") is not None
+        return cls._available
+
+    @classmethod
+    def notify(cls, title: str, message: str, timeout: int = 2000) -> bool:
+        """Send a desktop notification."""
+        if not cls._enabled or not cls.is_available():
+            return False
+
+        try:
+            subprocess.run(
+                ["notify-send", "-t", str(timeout), title, message],
+                capture_output=True,
+                timeout=5
+            )
+            return True
+        except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            return False
+
+    @classmethod
+    def set_enabled(cls, enabled: bool) -> None:
+        """Enable or disable notifications."""
+        cls._enabled = enabled
+
+
+class CacheManager:
+    """LRU cache manager with size limits."""
+
+    _initialized: bool = False
+    _max_size_bytes: int = 500 * 1024 * 1024  # 500 MB default
+
+    @classmethod
+    def initialize(cls, max_size_mb: int = 500) -> None:
+        """Initialize cache with size limit."""
+        if cls._initialized:
+            return
+        cls._max_size_bytes = max_size_mb * 1024 * 1024
+        cls._initialized = True
+        cls._enforce_limit()
+
+    @classmethod
+    def get_cache_stats(cls) -> Dict[str, any]:
+        """Get cache statistics."""
+        if not CACHE_DIR.exists():
+            return {"files": 0, "size_bytes": 0, "size_mb": 0.0}
+
+        total_size = 0
+        file_count = 0
+        for f in CACHE_DIR.glob("*.mp3"):
+            try:
+                total_size += f.stat().st_size
+                file_count += 1
+            except OSError:
+                pass
+
+        return {
+            "files": file_count,
+            "size_bytes": total_size,
+            "size_mb": round(total_size / (1024 * 1024), 2),
+            "max_size_mb": cls._max_size_bytes // (1024 * 1024),
+        }
+
+    @classmethod
+    def _enforce_limit(cls) -> None:
+        """Remove oldest files if cache exceeds size limit."""
+        if not CACHE_DIR.exists():
+            return
+
+        # Get all cache files sorted by modification time (oldest first)
+        files = []
+        total_size = 0
+        for f in CACHE_DIR.glob("*.mp3"):
+            try:
+                mtime = f.stat().st_mtime
+                size = f.stat().st_size
+                files.append((mtime, f, size))
+                total_size += size
+            except OSError:
+                pass
+
+        # Remove oldest files until under limit
+        files.sort()  # Oldest first
+        for mtime, f, size in files:
+            if total_size <= cls._max_size_bytes:
+                break
+            try:
+                f.unlink()
+                total_size -= size
+            except OSError:
+                pass
+
+    @classmethod
+    def clear(cls) -> int:
+        """Clear all cache files, return count of deleted files."""
+        if not CACHE_DIR.exists():
+            return 0
+
+        count = 0
+        for f in CACHE_DIR.glob("*.mp3"):
+            try:
+                f.unlink()
+                count += 1
+            except OSError:
+                pass
+        return count
+
+
 class TTSEngine:
     """Main TTS engine with caching and backend fallback."""
 
@@ -396,33 +552,74 @@ class CLI:
     """Command-line interface handler."""
 
     def __init__(self) -> None:
+        # Load config file first
+        self.app_config = TTSAppConfig.load()
         self.args = self._parse_args()
-        self.config = TTSConfig(
+
+        # CLI args override config file
+        self.tts_config = TTSConfig(
             lang=self.args.lang,
             cache_enabled=not self.args.no_cache,
-            verbose=self.args.verbose,
+            verbose=self.args.verbose or self.app_config.verbose,
             speed=self.args.speed,
         )
 
-    @staticmethod
-    def _parse_args() -> argparse.Namespace:
-        """Parse command-line arguments."""
+        # Store app-level config for notifications, progress, etc.
+        self.show_progress = self.app_config.progress
+        self.show_notifications = self.app_config.notifications
+
+        # Initialize cache with size limit
+        CacheManager.initialize(self.app_config.cache_max_size_mb)
+
+        # Set notification preference
+        NotificationManager.set_enabled(self.show_notifications)
+
+    def _parse_args(self) -> argparse.Namespace:
+        """Parse command-line arguments with config file defaults."""
         parser = argparse.ArgumentParser(description="Lightweight Neural TTS")
         parser.add_argument("source", nargs="*")
-        parser.add_argument("-l", "--lang", default=DEFAULT_LANG)
+        parser.add_argument(
+            "-l", "--lang",
+            default=self.app_config.language,
+            help=f"Language (default: {self.app_config.language})"
+        )
         parser.add_argument(
             "-s", "--speed",
-            default="normal",
-            choices=["slow", "normal", "fast"]
+            default=self.app_config.speed,
+            choices=["slow", "normal", "fast"],
+            help=f"Speech speed (default: {self.app_config.speed})"
         )
         parser.add_argument("-v", "--verbose", action="store_true")
         parser.add_argument("--no-cache", action="store_true")
         parser.add_argument("--clear-cache", action="store_true")
+        parser.add_argument("--cache-stats", action="store_true",
+                           help="Show cache statistics")
         parser.add_argument("--list-engines", action="store_true")
         parser.add_argument(
             "--get-clipboard",
             action="store_true",
             help="Print clipboard text and exit"
+        )
+        # Config management
+        parser.add_argument(
+            "--show-config",
+            action="store_true",
+            help="Show current configuration"
+        )
+        parser.add_argument(
+            "--generate-config",
+            action="store_true",
+            help="Generate sample config file"
+        )
+        parser.add_argument(
+            "--config-path",
+            action="store_true",
+            help="Show config file path"
+        )
+        parser.add_argument(
+            "--reset-config",
+            action="store_true",
+            help="Reset configuration to defaults"
         )
         return parser.parse_args()
 
@@ -445,15 +642,23 @@ class CLI:
 
     def handle_clear_cache(self) -> int:
         """Handle --clear-cache flag."""
-        if CACHE_DIR.exists():
-            shutil.rmtree(CACHE_DIR)
-        print("Done.")
+        count = CacheManager.clear()
+        print(f"Cleared {count} cached files.")
+        return 0
+
+    def handle_cache_stats(self) -> int:
+        """Handle --cache-stats flag."""
+        stats = CacheManager.get_cache_stats()
+        print("Cache Statistics:")
+        print(f"  Files: {stats['files']}")
+        print(f"  Size: {stats['size_mb']} MB / {stats['max_size_mb']} MB")
+        print(f"  Location: {CACHE_DIR}")
         return 0
 
     def run_interactive(self) -> int:
         """Run interactive mode."""
         print("Interactive mode - 'quit' to exit")
-        tts = TTSEngine(self.config)
+        tts = TTSEngine(self.tts_config)
 
         while True:
             try:
@@ -477,13 +682,33 @@ class CLI:
         for chunk in chunks:
             audio = tts.generate(chunk)
             if audio:
-                if not AudioPlayer.play(audio, self.config):
+                if not AudioPlayer.play(audio, self.tts_config):
                     Logger.error("Playback failed")
                     return False
         return True
 
     def run(self) -> int:
         """Main entry point."""
+        # Config management options
+        if self.args.config_path:
+            print(TTSAppConfig.get_config_path())
+            return 0
+
+        if self.args.generate_config:
+            print(generate_sample_config())
+            return 0
+
+        if self.args.show_config:
+            self._show_config()
+            return 0
+
+        if self.args.reset_config:
+            if TTSAppConfig.reset():
+                print("Configuration reset to defaults.")
+            else:
+                print("Failed to reset configuration.")
+            return 0
+
         if self.args.get_clipboard:
             return self.handle_get_clipboard()
 
@@ -493,16 +718,27 @@ class CLI:
         if self.args.clear_cache:
             return self.handle_clear_cache()
 
+        if self.args.cache_stats:
+            return self.handle_cache_stats()
+
         if not self.args.source:
             return self.run_interactive()
 
         return self.run_with_source()
 
+    def _show_config(self) -> None:
+        """Display current configuration."""
+        print(f"Configuration file: {TTSAppConfig.get_config_path()}")
+        print(f"Source: {self.app_config._source}")
+        print()
+        for key, value in self.app_config.to_dict().items():
+            print(f"  {key}: {value}")
+
     def run_with_source(self) -> int:
         """Run with provided source text/file."""
         text = ContentExtractor.from_source(
             " ".join(self.args.source),
-            self.config
+            self.tts_config
         )
 
         if not text:
@@ -511,14 +747,33 @@ class CLI:
         clean_text = ContentExtractor.clean_text(text)
         chunks = ContentExtractor.chunk_text(clean_text)
 
-        Logger.log(f"Speaking {len(chunks)} chunks...", self.config)
+        Logger.log(f"Speaking {len(chunks)} chunks...", self.tts_config)
 
-        tts = TTSEngine(self.config)
-        for chunk in chunks:
+        # Show notification for longer texts
+        if len(chunks) > 1:
+            NotificationManager.notify(
+                "TTS",
+                f"Speaking {len(chunks)} segments...",
+                timeout=2000
+            )
+
+        tts = TTSEngine(self.tts_config)
+        for i, chunk in enumerate(chunks, 1):
             audio = tts.generate(chunk)
-            if audio and not AudioPlayer.play(audio, self.config):
-                Logger.error("Playback failed")
-                return 1
+            if audio:
+                if self.show_progress and len(chunks) > 1:
+                    print(f"[{i}/{len(chunks)}]", end=" ", flush=True)
+                if not AudioPlayer.play(audio, self.tts_config):
+                    Logger.error("Playback failed")
+                    NotificationManager.notify("TTS", "Playback failed")
+                    return 1
+
+        if self.show_progress and len(chunks) > 1:
+            print()  # New line after progress
+
+        # Completion notification for longer texts
+        if len(chunks) > 1:
+            NotificationManager.notify("TTS", "Finished speaking", timeout=1500)
 
         return 0
 
