@@ -1,54 +1,58 @@
-# 🗣️ Enhanced TTS Application
+# Enhanced TTS Application
 
-A robust, production-ready Text-to-Speech application for Linux. Read text files, PDFs, URLs, or highlighting text on your screen.
+A lightweight, neural-network-based Text-to-Speech application for Linux with global keyboard shortcuts, smart caching, and multi-language support.
 
-## ✨ Highlights
-- **🚀 Instant Playback**: Smart caching system for zero-latency repeats.
-- **🖥️ System Integration**: Speak selected text globally with `Ctrl+Alt+S`.
-- **🌍 Multi-Language**: Support for US English, UK English, and Tamil.
-- **🛡️ Robust**: Auto-detection of audio players (mpg123, VLC) and error recovery.
+## Features
 
-## 📚 Documentation
+- **Neural Voices** - High-quality Microsoft Azure neural voices via Edge TTS
+- **Smart Caching** - Instant replay of previously spoken text
+- **System Integration** - Global keyboard shortcuts work in any application
+- **Multiple Input Sources** - Files, PDFs, URLs, clipboard, stdin
+- **Cross-Platform Clipboard** - Works on both X11 and Wayland
+- **Multi-Language** - US English, UK English, and Tamil
 
-Detailed documentation is broken down into:
+## Quick Start
 
-- **[DOCUMENTATION.md](DOCUMENTATION.md)**: Installation, Troubleshooting, and Advanced usage.
-- **[FEATURES_AND_COMMANDS.md](FEATURES_AND_COMMANDS.md)**: Full CLI reference and feature list.
+```bash
+# Install dependencies
+sudo apt install mpg123 xclip
+python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
 
-## 🚀 Quick Start
+# Run the application
+./tts "Hello, world!"
 
-1. **Install Dependencies**:
-   ```bash
-   sudo apt install mpg123 xclip
-   ./venv/bin/pip install -r requirements.txt
-   ```
-
-2. **Run the App**:
-   ```bash
-   ./tts document.txt
-   ```
-
-3. **Install Keyboard Shortcut**:
-   ```bash
-   python3 setup_shortcut.py
-   ```
-   Now press **Ctrl+Alt+S** to read any highlighted text!
-
-4. **Interactive Mode**:
-   ```bash
-   ./tts
-   ```
-   Launches a menu to change language, speed, and enter text.
-
-## 📦 Project Structure
-
-```text
-tts/
-├── app.py                      # Main Application
-├── tts                         # Launcher Script
-├── setup_shortcut.py           # Shortcut Installer
-├── speak_selection.sh          # Selection Handler
-├── DOCUMENTATION.md            # Master Guide
-├── FEATURES_AND_COMMANDS.md    # Reference Guide
-└── README.md                   # This file
+# Set up keyboard shortcuts
+python3 configure.py
 ```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Alt+S` | Speak selected/copied text |
+| `Ctrl+Alt+Q` | Stop speaking |
+
+## Basic Usage
+
+```bash
+./tts "text to speak"           # Direct text
+./tts document.txt              # Read file
+./tts -l en-uk -s slow file.txt # British English, slow speed
+cat notes.txt | ./tts -         # Read from stdin
+```
+
+## Documentation
+
+- **[USER_MANUAL.md](USER_MANUAL.md)** - Complete user manual with detailed usage, troubleshooting, and configuration
+- **[CLAUDE.md](CLAUDE.md)** - Developer documentation and architecture
+
+## Requirements
+
+- Python 3.12+
+- mpg123 (audio playback)
+- xclip or wl-clipboard (keyboard shortcuts)
+
+## License
+
+MIT License
