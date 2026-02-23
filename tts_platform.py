@@ -4,14 +4,16 @@ Supports: Linux (X11/Wayland), macOS, Windows
 """
 
 import os
-import sys
 import shutil
 import subprocess
+import sys
 from enum import Enum
 from typing import Optional
 
 
 class DisplayServer(Enum):
+    """Supported display servers."""
+
     X11 = "x11"
     WAYLAND = "wayland"
     WINDOWS = "windows"
@@ -20,6 +22,8 @@ class DisplayServer(Enum):
 
 
 class DesktopEnvironment(Enum):
+    """Supported desktop environments."""
+
     GNOME = "gnome"
     KDE = "kde"
     XFCE = "xfce"
@@ -47,11 +51,11 @@ def detect_display_server() -> DisplayServer:
         return DisplayServer.MACOS
 
     # Linux: Check Wayland first (many run XWayland)
-    if os.getenv('WAYLAND_DISPLAY'):
+    if os.getenv("WAYLAND_DISPLAY"):
         return DisplayServer.WAYLAND
-    if os.getenv('XDG_SESSION_TYPE', '').lower() == 'wayland':
+    if os.getenv("XDG_SESSION_TYPE", "").lower() == "wayland":
         return DisplayServer.WAYLAND
-    if os.getenv('DISPLAY'):
+    if os.getenv("DISPLAY"):
         return DisplayServer.X11
 
     return DisplayServer.UNKNOWN
@@ -62,27 +66,32 @@ def detect_desktop_environment() -> DesktopEnvironment:
     if detect_os() != "linux":
         return DesktopEnvironment.UNKNOWN
 
-    xdg_desktop = os.getenv('XDG_CURRENT_DESKTOP', '').upper()
+    xdg_desktop = os.getenv("XDG_CURRENT_DESKTOP", "").upper()
 
-    for de in xdg_desktop.split(':'):
-        if de in ['GNOME', 'KDE', 'XFCE', 'SWAY', 'HYPRLAND']:
+    for de in xdg_desktop.split(":"):
+        if de in ["GNOME", "KDE", "XFCE", "SWAY", "HYPRLAND"]:
             return DesktopEnvironment(de.lower())
 
     # Fallback: Process detection
     try:
-        result = subprocess.run(['ps', '-aux'], capture_output=True, text=True, timeout=2)
+        result = subprocess.run(
+            ["ps", "-aux"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
         output = result.stdout.lower()
-        if 'gnome-shell' in output:
+        if "gnome-shell" in output:
             return DesktopEnvironment.GNOME
-        if 'plasmashell' in output or 'kde' in output:
+        if "plasmashell" in output or "kde" in output:
             return DesktopEnvironment.KDE
-        if 'xfce4-session' in output:
+        if "xfce4-session" in output:
             return DesktopEnvironment.XFCE
-        if 'sway' in output:
+        if "sway" in output:
             return DesktopEnvironment.SWAY
-        if 'hyprland' in output:
+        if "hyprland" in output:
             return DesktopEnvironment.HYPRLAND
-    except:
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
         pass
 
     return DesktopEnvironment.UNKNOWN
@@ -92,101 +101,139 @@ def get_clipboard_text() -> Optional[str]:
     """Get clipboard text - cross-platform, auto-detects method."""
     os_name = detect_os()
 
-    # Windows
     if os_name == "windows":
-        try:
-            import win32clipboard
-            win32clipboard.OpenClipboard()
-            text = win32clipboard.GetClipboardData()
-            win32clipboard.CloseClipboard()
-            return text
-        except:
-            # Fallback to PowerShell
-            try:
-                result = subprocess.run(
-                    ['powershell', '-Command', 'Get-Clipboard'],
-                    capture_output=True, text=True, timeout=2
-                )
-                return result.stdout.strip() or None
-            except:
-                return None
+        return _get_clipboard_windows()
 
-    # macOS
     if os_name == "macos":
-        try:
-            result = subprocess.run(
-                ['pbpaste'],
-                capture_output=True, text=True, timeout=2
-            )
-            return result.stdout.strip() or None
-        except:
-            return None
+        return _get_clipboard_macos()
 
     # Linux: Try Wayland first, then X11
     display = detect_display_server()
 
-    # Wayland
-    if display == DisplayServer.WAYLAND and shutil.which('wl-paste'):
-        try:
-            result = subprocess.run(
-                ['wl-paste', '--no-newline'],
-                capture_output=True, text=True, timeout=2
-            )
-            if result.stdout.strip():
-                return result.stdout.strip()
-        except:
-            pass
+    if display == DisplayServer.WAYLAND:
+        text = _get_clipboard_wayland()
+        if text:
+            return text
 
-    # X11 - Try primary (highlighted), then clipboard (copied)
-    if shutil.which('xclip'):
-        try:
-            # Primary selection (highlighted text)
-            result = subprocess.run(
-                ['xclip', '-o', '-selection', 'primary'],
-                capture_output=True, text=True, timeout=2
-            )
-            if result.stdout.strip():
-                return result.stdout.strip()
+    return _get_clipboard_x11()
 
-            # Clipboard (copied text)
-            result = subprocess.run(
-                ['xclip', '-o', '-selection', 'clipboard'],
-                capture_output=True, text=True, timeout=2
-            )
-            return result.stdout.strip() or None
-        except:
-            return None
+
+def _get_clipboard_windows() -> Optional[str]:
+    """Get clipboard text on Windows."""
+    # Try win32clipboard first
+    try:
+        import win32clipboard
+        win32clipboard.OpenClipboard()
+        try:
+            text = win32clipboard.GetClipboardData()
+            return text
+        finally:
+            win32clipboard.CloseClipboard()
+    except (ImportError, OSError):
+        pass
+
+    # Fallback to PowerShell
+    try:
+        result = subprocess.run(
+            ["powershell", "-Command", "Get-Clipboard"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        return result.stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return None
+
+
+def _get_clipboard_macos() -> Optional[str]:
+    """Get clipboard text on macOS."""
+    try:
+        result = subprocess.run(
+            ["pbpaste"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        return result.stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return None
+
+
+def _get_clipboard_wayland() -> Optional[str]:
+    """Get clipboard text on Wayland."""
+    if not shutil.which("wl-paste"):
+        return None
+
+    try:
+        result = subprocess.run(
+            ["wl-paste", "--no-newline"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        pass
 
     return None
+
+
+def _get_clipboard_x11() -> Optional[str]:
+    """Get clipboard text on X11."""
+    if not shutil.which("xclip"):
+        return None
+
+    try:
+        # Primary selection (highlighted text)
+        result = subprocess.run(
+            ["xclip", "-o", "-selection", "primary"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+
+        # Clipboard (copied text)
+        result = subprocess.run(
+            ["xclip", "-o", "-selection", "clipboard"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        return result.stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return None
 
 
 def detect_available_engines() -> dict:
     """Detect available TTS engines at runtime."""
     engines = {
-        'edge': False,      # edge-tts Python package
-        'piper': False,     # Piper binary
-        'gtts': False,      # gtts Python package
-        'espeak': False,    # espeak binary
+        "edge": False,
+        "piper": False,
+        "gtts": False,
+        "espeak": False,
     }
 
     # Check Python packages
     try:
-        import edge_tts
-        engines['edge'] = True
+        import edge_tts  # noqa: F401
+        engines["edge"] = True
     except ImportError:
         pass
 
     try:
-        import gtts
-        engines['gtts'] = True
+        import gtts  # noqa: F401
+        engines["gtts"] = True
     except ImportError:
         pass
 
-    # Check binaries (subprocess)
-    if shutil.which('piper'):
-        engines['piper'] = True
+    # Check binaries
+    if shutil.which("piper"):
+        engines["piper"] = True
 
-    if shutil.which('espeak') or shutil.which('espeak-ng'):
-        engines['espeak'] = True
+    if shutil.which("espeak") or shutil.which("espeak-ng"):
+        engines["espeak"] = True
 
     return engines
