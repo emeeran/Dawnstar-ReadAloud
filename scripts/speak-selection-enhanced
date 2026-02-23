@@ -1,0 +1,34 @@
+#!/bin/bash
+# Enhanced Speak Selection
+# Speaks clipboard/selection with notification and fallback
+
+SCRIPT_DIR="$(dirname "$0")/.."
+TTS="$SCRIPT_DIR/tts"
+
+# Try primary selection first (highlighted text), then clipboard
+TEXT=$(xclip -o -selection primary 2>/dev/null)
+if [ -z "$TEXT" ]; then
+    TEXT=$(xclip -o -selection clipboard 2>/dev/null)
+fi
+
+# Wayland fallback
+if [ -z "$TEXT" ] && command -v wl-paste &> /dev/null; then
+    TEXT=$(wl-paste 2>/dev/null)
+fi
+
+if [ -z "$TEXT" ]; then
+    notify-send "TTS" "No text in clipboard" 2>/dev/null
+    exit 1
+fi
+
+# Count words
+WORDS=$(echo "$TEXT" | wc -w)
+
+# Notify
+notify-send "TTS" "Speaking $WORDS words..." -t 2000 2>/dev/null
+
+# Speak
+"$TTS" "$TEXT"
+
+# Completion notification
+notify-send "TTS" "Finished speaking" -t 1500 2>/dev/null

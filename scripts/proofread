@@ -1,0 +1,25 @@
+#!/bin/bash
+# Proofreading Helper
+# Read files slowly in British English for proofreading
+
+SCRIPT_DIR="$(dirname "$0")/.."
+TTS="$SCRIPT_DIR/tts"
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <file>"
+    echo "Reads the file slowly in British English for proofreading."
+    exit 1
+fi
+
+FILE="$1"
+
+if [ ! -f "$FILE" ]; then
+    echo "File not found: $FILE"
+    exit 1
+fi
+
+echo "Proofreading: $FILE"
+echo "Press Ctrl+C to stop"
+echo
+
+"$TTS" --speed slow --lang en-uk "$FILE"

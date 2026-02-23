@@ -1,0 +1,40 @@
+#!/bin/bash
+# Morning Briefing Script
+# Reads a personalized daily briefing
+
+TTS_DIR="$(dirname "$0")/.."
+TTS="$TTS_DIR/tts"
+
+# Get date info
+DAY=$(date +'%A')
+DATE=$(date +'%B %d, %Y')
+TIME=$(date +'%I:%M %p')
+
+# Speak greeting
+"$TTS" "Good morning. Today is $DAY, $DATE. The time is $TIME."
+
+# Check calendar events (if calendar cli available)
+if command -v cal &> /dev/null; then
+    EVENTS=$(cal | grep "$(date +%-d)" | wc -l)
+    if [ "$EVENTS" -gt 1 ]; then
+        "$TTS" "You have events on your calendar today."
+    fi
+fi
+
+# Check unread emails (example - adapt to your email setup)
+# if command -v notmuch &> /dev/null; then
+#     UNREAD=$(notmuch count tag:unread)
+#     if [ "$UNREAD" -gt 0 ]; then
+#         "$TTS" "You have $UNREAD unread emails."
+#     fi
+# fi
+
+# Weather (requires wttr.in)
+if command -v curl &> /dev/null; then
+    WEATHER=$(curl -s wttr.in?format="%t+%C" 2>/dev/null)
+    if [ -n "$WEATHER" ]; then
+        "$TTS" "Current weather: $WEATHER"
+    fi
+fi
+
+"$TTS" "Have a productive day!"

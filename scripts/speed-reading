@@ -1,0 +1,20 @@
+#!/bin/bash
+# Speed Reading Practice
+# Read clipboard content at fast speed for speed-reading training
+
+SCRIPT_DIR="$(dirname "$0")/.."
+TTS="$SCRIPT_DIR/tts"
+
+# Get text from clipboard
+TEXT=$(xclip -o -selection clipboard 2>/dev/null)
+if [ -z "$TEXT" ]; then
+    TEXT=$(xclip -o -selection primary 2>/dev/null)
+fi
+
+if [ -z "$TEXT" ]; then
+    echo "No text in clipboard. Copy some text first."
+    exit 1
+fi
+
+# Read at fast speed
+"$TTS" --speed fast "$TEXT"
