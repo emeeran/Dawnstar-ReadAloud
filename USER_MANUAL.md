@@ -631,18 +631,74 @@ MESSAGE="$1"
 0 * * * * /path/to/tts "It is now $(date +'%I %M %p')"
 ```
 
-### Integration with Other Tools
+### Daemon Mode (Low Latency)
+
+For frequent speech synthesis, use the daemon mode for lower latency:
+
+**Latency Comparison:**
+| Mode | Startup Time | Use Case |
+|------|-------------|----------|
+| CLI (`./tts`) | ~500ms | Occasional use |
+| Daemon (`ttsc`) | ~50ms | Frequent use, keyboard shortcuts |
+
+#### Starting the Daemon
 
 ```bash
-# Read git commit messages
-git log -1 --pretty=%B | ./tts -
+# Start daemon in foreground (Ctrl+C to stop)
+./ttsc daemon
 
-# Read system logs
-tail -n 5 /var/log/syslog | ./tts -
+# Start daemon in background
+./ttsc daemon --fork
 
-# Read clipboard history (if using clipman)
-./tts "$(xclip -o -selection clipboard)"
+# Or using Python module
+./.venv/bin/python -m ttsd
 ```
+
+#### Using the Daemon
+
+```bash
+# Check daemon status
+./ttsc status
+
+# Speak text
+./ttsc speak "Hello from the daemon"
+
+# Speak clipboard selection
+./ttsc selection
+
+# Control playback
+./ttsc pause
+./ttsc resume
+./ttsc stop
+
+# Stop the daemon
+./ttsc stop-daemon
+```
+
+#### Daemon Commands
+
+| Command | Description |
+|---------|-------------|
+| `daemon` | Start the daemon |
+| `status` | Show daemon status |
+| `speak TEXT` | Queue text for speaking |
+| `selection` | Speak clipboard content |
+| `pause` | Pause current playback |
+| `resume` | Resume paused playback |
+| `stop` | Stop current playback |
+| `stop-daemon` | Stop the daemon |
+
+#### When to Use Daemon Mode
+
+**Use daemon mode when:**
+- You use keyboard shortcuts frequently
+- You trigger speech dozens of times per hour
+- You need minimal latency
+
+**Use CLI mode when:**
+- You occasionally need TTS
+- You want the simplest setup
+- You're running scripts that need isolation
 
 ---
 
