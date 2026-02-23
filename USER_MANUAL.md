@@ -11,14 +11,14 @@ A comprehensive guide to the Enhanced Text-to-Speech application for Linux.
 3. [Quick Start](#3-quick-start)
 4. [Basic Usage](#4-basic-usage)
 5. [Command Reference](#5-command-reference)
-6. [Keyboard Shortcuts](#6-keyboard-shortcuts)
-7. [Languages and Voices](#7-languages-and-voices)
-8. [Text Processing](#8-text-processing)
-9. [Caching System](#9-caching-system)
-10. [Advanced Usage](#10-advanced-usage)
-11. [Daemon Mode](#11-daemon-mode)
+6. [Configuration](#6-configuration)
+7. [Keyboard Shortcuts](#7-keyboard-shortcuts)
+8. [Languages and Voices](#8-languages-and-voices)
+9. [Text Processing](#9-text-processing)
+10. [Caching System](#10-caching-system)
+11. [Advanced Usage](#11-advanced-usage)
 12. [Troubleshooting](#12-troubleshooting)
-13. [Configuration Files](#13-configuration-files)
+13. [File Locations](#13-file-locations)
 14. [Uninstallation](#14-uninstallation)
 
 ---
@@ -34,12 +34,14 @@ The Enhanced TTS Application is a lightweight, neural-network-based text-to-spee
 | Feature | Description |
 |---------|-------------|
 | **Neural Voices** | High-quality AI-generated speech via Edge TTS |
-| **Smart Caching** | Instant replay of previously spoken text |
+| **Smart Caching** | Instant replay with LRU cache and size limits |
+| **Configuration File** | Persistent preferences in `~/.config/tts/config.yaml` |
 | **Multi-Language** | US English, UK English, and Tamil support |
 | **System Integration** | Global keyboard shortcuts for any application |
-| **Multiple Input Sources** | Files, PDFs, URLs, clipboard, stdin |
+| **Multiple Input Sources** | Files, PDFs, EPUBs, URLs, clipboard, stdin |
+| **Desktop Notifications** | Visual feedback for long texts |
+| **Progress Indication** | Chunk counter for multi-segment playback |
 | **Cross-Platform Clipboard** | Works on X11 and Wayland |
-| **Adjustable Speed** | Slow, normal, or fast playback |
 
 ### System Requirements
 
@@ -64,6 +66,9 @@ sudo apt install -y poppler-utils
 
 # Optional: For better web scraping
 sudo apt install -y lynx
+
+# Optional: For desktop notifications
+sudo apt install -y libnotify-bin
 ```
 
 **Package Descriptions:**
@@ -75,6 +80,7 @@ sudo apt install -y lynx
 | `wl-clipboard` | Clipboard access (Wayland) | Yes* |
 | `poppler-utils` | PDF text extraction | No |
 | `lynx` | Web content extraction | No |
+| `libnotify-bin` | Desktop notifications | No |
 
 *Either xclip (X11) or wl-clipboard (Wayland) is required for keyboard shortcuts.
 
@@ -98,6 +104,8 @@ python3 -m venv .venv
 | `edge-tts` | Microsoft Edge neural TTS engine |
 | `gtts` | Google TTS (fallback engine) |
 | `ebooklib` | EPUB ebook support |
+| `beautifulsoup4` | HTML parsing for EPUB extraction |
+| `pyyaml` | Configuration file parsing |
 
 ### Step 4: Verify Installation
 
@@ -140,6 +148,12 @@ This installs:
 ./tts document.txt
 ```
 
+### Read an E-book
+
+```bash
+./tts mybook.epub
+```
+
 ### Read Selected Text
 
 1. Highlight text in any application
@@ -163,6 +177,7 @@ The application accepts multiple input types:
 | Direct text | `./tts "text"` | `./tts "Hello world"` |
 | Text file | `./tts path/to/file.txt` | `./tts notes.txt` |
 | PDF file | `./tts document.pdf` | `./tts report.pdf` |
+| EPUB file | `./tts book.epub` | `./tts novel.epub` |
 | URL | `./tts https://...` | `./tts https://example.com/article` |
 | Stdin | `echo "text" \| ./tts -` | `cat file.txt \| ./tts -` |
 | Clipboard | `./tts --get-clipboard` | Returns clipboard text |
@@ -208,6 +223,15 @@ Interactive mode - 'quit' to exit
 ./tts "Hello" --lang ta
 ```
 
+### Progress Indication
+
+For longer texts, progress is shown automatically:
+
+```bash
+./tts long_document.txt
+[1/5] [2/5] [3/5] [4/5] [5/5]
+```
+
 ---
 
 ## 5. Command Reference
@@ -224,25 +248,38 @@ Interactive mode - 'quit' to exit
 |----------|-------------|
 | `SOURCE` | Text to speak, file path, URL, or `-` for stdin. Multiple words are combined. If omitted, enters interactive mode. |
 
-### Options
-
-#### Speech Options
+### Speech Options
 
 | Short | Long | Values | Default | Description |
 |-------|------|--------|---------|-------------|
-| `-l` | `--lang` | `en-us`, `en-uk`, `ta` | `en-us` | Language/voice selection |
-| `-s` | `--speed` | `slow`, `normal`, `fast` | `normal` | Speech rate adjustment |
+| `-l` | `--lang` | `en-us`, `en-uk`, `ta` | config | Language/voice selection |
+| `-s` | `--speed` | `slow`, `normal`, `fast` | config | Speech rate adjustment |
+| `-v` | `--verbose` | - | - | Show detailed progress information |
 
-#### System Options
+### Cache Options
 
-| Short | Long | Description |
-|-------|------|-------------|
-| `-v` | `--verbose` | Show detailed progress information |
-| | `--no-cache` | Bypass cache, regenerate audio |
-| | `--clear-cache` | Delete all cached audio files |
-| | `--list-engines` | Show available TTS engines |
-| | `--get-clipboard` | Print clipboard text and exit |
-| `-h` | `--help` | Show help message |
+| Long | Description |
+|------|-------------|
+| `--no-cache` | Bypass cache, regenerate audio |
+| `--clear-cache` | Delete all cached audio files |
+| `--cache-stats` | Show cache size and statistics |
+
+### Configuration Options
+
+| Long | Description |
+|------|-------------|
+| `--show-config` | Display current configuration |
+| `--generate-config` | Generate sample config file |
+| `--config-path` | Show configuration file path |
+| `--reset-config` | Reset configuration to defaults |
+
+### System Options
+
+| Long | Description |
+|------|-------------|
+| `--list-engines` | Show available TTS engines |
+| `--get-clipboard` | Print clipboard text and exit |
+| `-h`, `--help` | Show help message |
 
 ### Examples
 
@@ -256,19 +293,118 @@ Interactive mode - 'quit' to exit
 # British English, slow speed
 ./tts proofread.txt -l en-uk -s slow
 
+# Read an e-book
+./tts mybook.epub
+
+# Check cache statistics
+./tts --cache-stats
+
+# Show current configuration
+./tts --show-config
+
+# Generate sample config
+./tts --generate-config > ~/.config/tts/config.yaml
+
 # Pipe content
 cat README.md | ./tts -
 
 # Force fresh generation
 ./tts "Test" --no-cache
-
-# Check clipboard content
-./tts --get-clipboard
 ```
 
 ---
 
-## 6. Keyboard Shortcuts
+## 6. Configuration
+
+### Configuration File
+
+The application uses a YAML configuration file for persistent settings:
+
+**Location:** `~/.config/tts/config.yaml`
+
+### Creating Configuration
+
+```bash
+# Generate sample configuration
+./tts --generate-config > ~/.config/tts/config.yaml
+
+# Or create manually
+mkdir -p ~/.config/tts
+nano ~/.config/tts/config.yaml
+```
+
+### Configuration Options
+
+```yaml
+# TTS Application Configuration
+# ~/.config/tts/config.yaml
+
+# Language: en-us, en-uk, ta
+language: en-us
+
+# Speed: slow, normal, fast
+speed: normal
+
+# Enable audio caching
+cache_enabled: true
+
+# Maximum cache size in megabytes
+cache_max_size_mb: 500
+
+# Show verbose output
+verbose: false
+
+# Show desktop notifications
+notifications: true
+
+# Show progress for long texts
+progress: true
+
+# Preferred engine: edge, gtts, espeak (null = auto)
+default_engine: null
+```
+
+### Configuration Priority
+
+Settings are applied in this order (later overrides earlier):
+
+1. Built-in defaults
+2. Configuration file
+3. Command-line arguments
+
+### Viewing Configuration
+
+```bash
+# Show current configuration with source
+./tts --show-config
+
+# Show config file path
+./tts --config-path
+
+# Reset to defaults
+./tts --reset-config
+```
+
+### Example Output
+
+```
+$ ./tts --show-config
+Configuration file: /home/user/.config/tts/config.yaml
+Source: file
+
+  language: en-uk
+  speed: normal
+  cache_enabled: True
+  cache_max_size_mb: 500
+  verbose: False
+  notifications: True
+  progress: True
+  default_engine: None
+```
+
+---
+
+## 7. Keyboard Shortcuts
 
 ### Default Shortcuts
 
@@ -312,15 +448,9 @@ If automatic setup fails:
 5. Shortcut: Press `Ctrl+Alt+S`
 6. Repeat for `Stop Speaking` → `/path/to/tts/stop_speaking.sh` → `Ctrl+Alt+Q`
 
-**KDE:**
-1. System Settings → Shortcuts → Custom Shortcuts
-2. Edit → New → Global Shortcut → Command/URL
-3. Trigger: `Ctrl+Alt+S`
-4. Action: `/path/to/tts/speak_selection.sh`
-
 ---
 
-## 7. Languages and Voices
+## 8. Languages and Voices
 
 ### Available Languages
 
@@ -331,8 +461,6 @@ If automatic setup fails:
 | `ta` | Tamil | ta-IN-ValluvarNeural | Tamil |
 
 ### Language Aliases
-
-The following aliases are accepted:
 
 | Alias | Maps To |
 |-------|---------|
@@ -357,7 +485,7 @@ The application tries engines in order:
 
 ---
 
-## 8. Text Processing
+## 9. Text Processing
 
 ### Automatic Cleaning
 
@@ -383,6 +511,20 @@ Long text is split into chunks for processing:
 | Plain Text | `.txt` | None |
 | Markdown | `.md` | None |
 | PDF | `.pdf` | `poppler-utils` |
+| EPUB | `.epub` | `ebooklib`, `beautifulsoup4` |
+
+### EPUB Support
+
+EPUB files are automatically parsed:
+
+1. Extracts all document items
+2. Removes scripts, styles, navigation
+3. Combines text from all chapters
+4. Cleans whitespace
+
+```bash
+./tts mybook.epub
+```
 
 ### Web Content
 
@@ -394,7 +536,7 @@ When a URL is provided:
 
 ---
 
-## 9. Caching System
+## 10. Caching System
 
 ### How Caching Works
 
@@ -405,21 +547,31 @@ Cache Key = MD5(text + language + speed)
 Cache Location = ~/.cache/tts_app/
 ```
 
-### Cache Examples
+### LRU Cache Management
 
-Same text, different settings = different cache:
+The cache automatically manages size:
+
+- **Default Limit**: 500 MB
+- **Eviction Policy**: Least Recently Used (LRU)
+- **Configuration**: Set `cache_max_size_mb` in config file
+
+When the cache exceeds the limit, oldest files are removed automatically.
+
+### Cache Statistics
 
 ```bash
-./tts "Hello"              # Cache: abc123.mp3
-./tts "Hello" --lang en-uk # Cache: def456.mp3 (different cache)
-./tts "Hello"              # Cache: abc123.mp3 (reused)
+$ ./tts --cache-stats
+Cache Statistics:
+  Files: 45
+  Size: 2.35 MB / 500 MB
+  Location: /home/user/.cache/tts_app
 ```
 
 ### Managing Cache
 
 ```bash
-# View cache size
-du -sh ~/.cache/tts_app/
+# View cache statistics
+./tts --cache-stats
 
 # Clear all cached audio
 ./tts --clear-cache
@@ -433,7 +585,21 @@ find ~/.cache/tts_app/ -name "*.mp3" -mtime +30 -delete
 
 ---
 
-## 10. Advanced Usage
+## 11. Advanced Usage
+
+### Desktop Notifications
+
+For longer texts, desktop notifications show playback status:
+
+- **Start**: "Speaking N segments..."
+- **Complete**: "Finished speaking"
+- **Error**: "Playback failed"
+
+Configure in `~/.config/tts/config.yaml`:
+
+```yaml
+notifications: true   # Enable notifications
+```
 
 ### Piping Content
 
@@ -477,48 +643,6 @@ tail -n 5 /var/log/syslog | ./tts -
 # Read clipboard history (if using clipman)
 ./tts "$(xclip -o -selection clipboard)"
 ```
-
----
-
-## 11. Daemon Mode
-
-The application includes a daemon for lower latency:
-
-### Starting the Daemon
-
-```bash
-# Start daemon (foreground)
-./ttsc --daemon
-
-# Start daemon (background)
-./ttsc --daemon --fork
-
-# Start via systemd
-systemctl --user start tts-daemon
-systemctl --user enable tts-daemon  # Auto-start on login
-```
-
-### Using the Daemon
-
-```bash
-# Speak via daemon
-./ttsc speak "Hello from the daemon"
-
-# Stop speaking
-./ttsc stop
-
-# Check status
-./ttsc status
-```
-
-### Daemon Advantages
-
-| Feature | CLI Mode | Daemon Mode |
-|---------|----------|-------------|
-| Startup time | ~500ms | ~50ms |
-| Process overhead | New process each time | Single process |
-| Queue management | None | Built-in |
-| IPC support | No | D-Bus/Socket |
 
 ---
 
@@ -577,19 +701,13 @@ sudo apt install ffmpeg
 
 **X11:**
 ```bash
-# Install xclip
 sudo apt install xclip
-
-# Test clipboard
 xclip -o -selection clipboard
 ```
 
 **Wayland:**
 ```bash
-# Install wl-clipboard
 sudo apt install wl-clipboard
-
-# Test clipboard
 wl-paste
 ```
 
@@ -611,6 +729,44 @@ wl-paste
    ~/.local/bin/tts-speak
    ```
 
+### EPUB Not Working
+
+**Symptoms:** Error reading EPUB files.
+
+**Solution:** Install required dependencies:
+```bash
+./.venv/bin/pip install ebooklib beautifulsoup4
+```
+
+### Notifications Not Showing
+
+**Cause:** `notify-send` not installed.
+
+**Solution:**
+```bash
+sudo apt install libnotify-bin
+```
+
+Or disable notifications in config:
+```yaml
+notifications: false
+```
+
+### Cache Growing Too Large
+
+**Solution:**
+```bash
+# Check cache size
+./tts --cache-stats
+
+# Reduce limit in config
+# Edit ~/.config/tts/config.yaml
+cache_max_size_mb: 200
+
+# Or clear cache
+./tts --clear-cache
+```
+
 ### "edge-tts not found" Error
 
 **Cause:** Virtual environment not activated or dependencies not installed.
@@ -624,59 +780,37 @@ wl-paste
 ./.venv/bin/pip show edge-tts
 ```
 
-### Slow First Playback
+### Configuration Not Loading
 
-**Cause:** First-time audio generation requires network access.
+**Symptoms:** Settings in config file not being applied.
 
 **Solutions:**
-- This is normal behavior
-- Subsequent plays use cache (instant)
-- Pre-cache common phrases if needed
 
-### Cache Corruption
+1. Check config file path:
+   ```bash
+   ./tts --config-path
+   ```
 
-**Symptoms:** Garbled audio or errors.
+2. Verify YAML syntax:
+   ```bash
+   python3 -c "import yaml; yaml.safe_load(open('~/.config/tts/config.yaml'))"
+   ```
 
-**Solution:**
-```bash
-./tts --clear-cache
-```
+3. Show current config:
+   ```bash
+   ./tts --show-config
+   ```
 
 ---
 
-## 13. Configuration Files
-
-### File Locations
+## 13. File Locations
 
 | File | Location | Purpose |
 |------|----------|---------|
+| Configuration | `~/.config/tts/config.yaml` | User preferences |
 | Cache | `~/.cache/tts_app/` | Generated audio files |
 | Desktop Entry | `~/.local/share/applications/tts.desktop` | Application menu entry |
 | Wrapper Scripts | `~/.local/bin/tts*` | System-wide commands |
-| Systemd Service | `~/.config/systemd/user/tts-daemon.service` | Daemon auto-start |
-
-### Environment Variables
-
-None required. The application auto-detects settings.
-
-### Customizing Voices
-
-Edit `app.py` to add new languages:
-
-```python
-LANG_CONFIG = {
-    "en-us": {"name": "English (US)", "voice": "en-US-GuyNeural", "fallback_tld": "us"},
-    "en-uk": {"name": "English (UK)", "voice": "en-GB-RyanNeural", "fallback_tld": "co.uk"},
-    "ta": {"name": "Tamil", "voice": "ta-IN-ValluvarNeural", "fallback_tld": None},
-    # Add new languages here
-    "es": {"name": "Spanish", "voice": "es-ES-AlvaroNeural", "fallback_tld": "es"},
-}
-```
-
-Find available Edge TTS voices:
-```bash
-./.venv/bin/edge-tts --list-voices
-```
 
 ---
 
@@ -685,18 +819,16 @@ Find available Edge TTS voices:
 ### Remove System Integration
 
 ```bash
-# Remove shortcuts and desktop entry
 rm ~/.local/share/applications/tts.desktop
 rm ~/.local/bin/tts
 rm ~/.local/bin/tts-stop
 rm ~/.local/bin/tts-speak
-systemctl --user disable tts-daemon
-rm ~/.config/systemd/user/tts-daemon.service
 ```
 
-### Remove Cache
+### Remove Configuration and Cache
 
 ```bash
+rm -rf ~/.config/tts/
 rm -rf ~/.cache/tts_app/
 ```
 
@@ -717,6 +849,7 @@ rm -rf /path/to/tts/
 │  BASIC USAGE                                                 │
 │  ./tts "text"              Speak text directly               │
 │  ./tts file.txt            Read file aloud                   │
+│  ./tts book.epub           Read e-book                       │
 │  ./tts -                   Read from stdin                   │
 ├─────────────────────────────────────────────────────────────┤
 │  OPTIONS                                                     │
@@ -724,16 +857,19 @@ rm -rf /path/to/tts/
 │  -s, --speed SPEED         Speed: slow, normal, fast         │
 │  -v, --verbose             Show progress                     │
 │  --no-cache                Skip cache                        │
-│  --clear-cache             Delete all cached audio           │
+│  --cache-stats             Show cache statistics             │
+│  --show-config             Display configuration             │
 ├─────────────────────────────────────────────────────────────┤
 │  KEYBOARD SHORTCUTS                                          │
 │  Ctrl+Alt+S                Speak selection                   │
 │  Ctrl+Alt+Q                Stop speaking                     │
 ├─────────────────────────────────────────────────────────────┤
-│  EXAMPLES                                                    │
-│  ./tts doc.txt -l en-uk -s slow                             │
-│  cat notes.txt | ./tts -                                     │
-│  ./tts "Done" && echo "Task complete"                       │
+│  CONFIG FILE: ~/.config/tts/config.yaml                      │
+│  language: en-us                                             │
+│  speed: normal                                               │
+│  cache_max_size_mb: 500                                      │
+│  notifications: true                                         │
+│  progress: true                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
