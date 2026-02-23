@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import sys
+import importlib.util
 from enum import Enum
 from typing import Optional
 
@@ -99,6 +100,15 @@ def detect_desktop_environment() -> DesktopEnvironment:
 
 def get_clipboard_text() -> Optional[str]:
     """Get clipboard text - cross-platform, auto-detects method."""
+    try:
+        import pyperclip
+
+        text = (pyperclip.paste() or "").strip()
+        if text:
+            return text
+    except (ImportError, Exception):
+        pass
+
     os_name = detect_os()
 
     if os_name == "windows":
@@ -217,17 +227,8 @@ def detect_available_engines() -> dict:
     }
 
     # Check Python packages
-    try:
-        import edge_tts  # noqa: F401
-        engines["edge"] = True
-    except ImportError:
-        pass
-
-    try:
-        import gtts  # noqa: F401
-        engines["gtts"] = True
-    except ImportError:
-        pass
+    engines["edge"] = importlib.util.find_spec("edge_tts") is not None
+    engines["gtts"] = importlib.util.find_spec("gtts") is not None
 
     # Check binaries
     if shutil.which("piper"):

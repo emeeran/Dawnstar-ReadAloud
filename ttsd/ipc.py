@@ -5,10 +5,10 @@ Unix socket-based inter-process communication with JSON protocol.
 Provides fast local communication between clients and the TTS daemon.
 """
 
+import asyncio
 import json
 import os
 import socket
-import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -37,11 +37,17 @@ class UnixSocketServer:
         """
         self.daemon = daemon
         self.socket_path = Path(self.SOCKET_PATH)
-        self.server_socket: Optional[socket.socket] = None
+        self.server: Optional[asyncio.AbstractServer] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._shutdown_event: Optional[asyncio.Event] = None
         self._running = False
 
     def start(self) -> None:
-        """Start the IPC server."""
+        """Start the IPC server (blocking)."""
+        asyncio.run(self._serve())
+
+    async def _serve(self) -> None:
+        """Run asyncio Unix socket server until shutdown is requested."""
         # Remove stale socket file
         if self.socket_path.exists():
             self.socket_path.unlink()
@@ -49,120 +55,119 @@ class UnixSocketServer:
         # Ensure directory exists
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create Unix socket
-        self.server_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind(str(self.socket_path))
-        self.server_socket.listen(5)
-        self.server_socket.settimeout(1.0)
+        self._loop = asyncio.get_running_loop()
+        self._shutdown_event = asyncio.Event()
+        self.server = await asyncio.start_unix_server(
+            self._handle_client,
+            path=str(self.socket_path),
+            limit=self.BUFFER_SIZE,
+        )
 
         self._running = True
+        await self._shutdown_event.wait()
 
-        while self._running:
-            try:
-                client, _ = self.server_socket.accept()
-                thread = threading.Thread(
-                    target=self._handle_client, args=(client,), daemon=True
-                )
-                thread.start()
-            except socket.timeout:
-                continue
-            except Exception:
-                if self._running:
-                    continue
-                break
+        if self.server is not None:
+            self.server.close()
+            await self.server.wait_closed()
+
+        if self.socket_path.exists():
+            self.socket_path.unlink()
+
+        self.server = None
+        self._loop = None
+        self._shutdown_event = None
 
     def stop(self) -> None:
         """Stop the IPC server."""
         self._running = False
-        if self.server_socket:
-            self.server_socket.close()
-        if self.socket_path.exists():
+        if self._loop and self._shutdown_event:
+            self._loop.call_soon_threadsafe(self._shutdown_event.set)
+        elif self.socket_path.exists():
             self.socket_path.unlink()
 
-    def _handle_client(self, client: socket.socket) -> None:
-        """Handle a client connection."""
-        buffer = ""
-
+    async def _handle_client(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+    ) -> None:
+        """Handle a single client connection."""
         try:
             while self._running:
-                data = client.recv(self.BUFFER_SIZE)
+                data = await reader.readline()
                 if not data:
                     break
 
-                buffer += data.decode("utf-8")
+                line = data.decode("utf-8", errors="ignore").strip()
+                if not line:
+                    continue
 
-                # Process complete messages (newline-delimited JSON)
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    if not line.strip():
-                        continue
+                try:
+                    request = json.loads(line)
+                    response = self._process_command(request)
+                except json.JSONDecodeError as e:
+                    response = {"status": "error", "message": f"Invalid JSON: {e}"}
 
-                    try:
-                        request = json.loads(line)
-                        response = self._process_command(request)
-                    except json.JSONDecodeError as e:
-                        response = {"status": "error", "message": f"Invalid JSON: {e}"}
-
-                    client.send((json.dumps(response) + "\n").encode("utf-8"))
-
-        except Exception:
+                writer.write((json.dumps(response) + "\n").encode("utf-8"))
+                await writer.drain()
+        except (ConnectionError, OSError):
             pass
         finally:
-            client.close()
+            writer.close()
+            await writer.wait_closed()
 
     def _process_command(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Process a command and return response."""
         cmd = request.get("cmd", "").lower()
 
         try:
-            if cmd == "speak":
-                text = request.get("text", "")
-                options = request.get("options", {})
-                if not text:
-                    return {"status": "error", "message": "No text provided"}
+            match cmd:
+                case "speak":
+                    text = request.get("text", "")
+                    options = request.get("options", {})
+                    if not text:
+                        return {"status": "error", "message": "No text provided"}
 
-                job_id = self.daemon.submit_job(text, options)
-                return {"status": "ok", "job_id": job_id}
+                    job_id = self.daemon.submit_job(text, options)
+                    return {"status": "ok", "job_id": job_id}
 
-            elif cmd == "speak-selection":
-                import tts_platform
+                case "speak-selection":
+                    import tts_platform
 
-                text = tts_platform.get_clipboard_text()
-                if not text:
-                    return {"status": "error", "message": "No text in clipboard"}
+                    text = tts_platform.get_clipboard_text()
+                    if not text:
+                        return {"status": "error", "message": "No text in clipboard"}
 
-                job_id = self.daemon.submit_job(text, request.get("options", {}))
-                return {"status": "ok", "job_id": job_id}
+                    job_id = self.daemon.submit_job(text, request.get("options", {}))
+                    return {"status": "ok", "job_id": job_id}
 
-            elif cmd == "stop":
-                self.daemon.stop()
-                return {"status": "ok"}
+                case "stop":
+                    self.daemon.stop()
+                    return {"status": "ok"}
 
-            elif cmd == "pause":
-                if self.daemon.pause():
-                    return {"status": "ok", "state": "paused"}
-                return {"status": "error", "message": "Cannot pause in current state"}
+                case "pause":
+                    if self.daemon.pause():
+                        return {"status": "ok", "state": "paused"}
+                    return {"status": "error", "message": "Cannot pause in current state"}
 
-            elif cmd == "resume":
-                if self.daemon.resume():
-                    return {"status": "ok", "state": "playing"}
-                return {"status": "error", "message": "Cannot resume in current state"}
+                case "resume":
+                    if self.daemon.resume():
+                        return {"status": "ok", "state": "playing"}
+                    return {"status": "error", "message": "Cannot resume in current state"}
 
-            elif cmd == "status" or cmd == "get-state":
-                state = self.daemon.get_state()
-                return {"status": "ok", "data": state}
+                case "status" | "get-state":
+                    state = self.daemon.get_state()
+                    return {"status": "ok", "data": state}
 
-            elif cmd == "get-voices":
-                voices = self.daemon.get_voices()
-                return {"status": "ok", "voices": voices}
+                case "get-voices":
+                    voices = self.daemon.get_voices()
+                    return {"status": "ok", "voices": voices}
 
-            elif cmd == "shutdown":
-                self.daemon.shutdown()
-                return {"status": "ok", "message": "Shutting down"}
+                case "shutdown":
+                    self.daemon.shutdown()
+                    return {"status": "ok", "message": "Shutting down"}
 
-            else:
-                return {"status": "error", "message": f"Unknown command: {cmd}"}
+                case _:
+                    return {"status": "error", "message": f"Unknown command: {cmd}"}
 
         except Exception as e:
             return {"status": "error", "message": str(e)}

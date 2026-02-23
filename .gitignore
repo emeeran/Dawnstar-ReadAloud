@@ -22,3 +22,7 @@ claude_generated.zip
 
 # Review/archive
 trash2review/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

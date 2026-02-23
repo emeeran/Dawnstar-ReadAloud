@@ -50,18 +50,20 @@ def check_dependencies():
 
 def install_wrapper_scripts():
     """Install wrapper scripts to ~/.local/bin/."""
-    print("Installing wrapper scripts...")
+    print("Installing wrapper scripts (fallback mode)...")
 
     bin_dir = CMD_TTS.parent
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    # Main TTS wrapper
-    tts_content = f"""#!/bin/bash
+    if shutil.which("tts"):
+        print("   Found installed 'tts' command (entry point), skipping main wrapper")
+    else:
+        tts_content = f"""#!/bin/bash
 exec {SCRIPT_DIR}/tts "$@"
 """
-    CMD_TTS.write_text(tts_content)
-    CMD_TTS.chmod(0o755)
-    print(f"   Installed: {CMD_TTS}")
+        CMD_TTS.write_text(tts_content)
+        CMD_TTS.chmod(0o755)
+        print(f"   Installed fallback: {CMD_TTS}")
 
     # Stop wrapper
     stop_content = f"""#!/bin/bash
@@ -133,11 +135,13 @@ def create_desktop_entry():
     desktop_file = Path.home() / ".local/share/applications/tts.desktop"
     desktop_file.parent.mkdir(parents=True, exist_ok=True)
 
+    tts_exec = "tts" if shutil.which("tts") else str(CMD_TTS)
+
     content = f"""[Desktop Entry]
 Type=Application
 Name={APP_NAME}
 Comment=Speak selected text or files
-Exec={CMD_TTS} %F
+Exec={tts_exec} %F
 Icon=audio-headset
 Terminal=false
 Categories=Utility;Audio;Accessibility;

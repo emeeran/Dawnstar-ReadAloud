@@ -21,8 +21,8 @@ chmod +x "$CMD_SPEAK" "$CMD_STOP"
 # Define shortcuts (index, name, command, binding)
 # Custom0 is reserved (e.g., for Flameshot)
 SHORTCUTS=(
-    "1|Speak Selection|$CMD_SPEAK|<Control><Alt>s"
-    "2|Stop Speaking|$CMD_STOP|<Control><Alt>q"
+    "1|Speak Selection|/bin/bash -lc '$CMD_SPEAK'|<Control><Alt>s"
+    "2|Stop Speaking|/bin/bash -lc '$CMD_STOP'|<Control><Alt>q"
 )
 
 # Build binding list

@@ -19,14 +19,7 @@ from typing import Any, Callable, Dict, Optional
 # Import from parent module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app import (
-    CACHE_DIR,
-    ContentExtractor,
-    TTSConfig,
-    TTSEngine,
-    AudioPlayer,
-    LANG_CONFIG,
-)
+from core import AudioPlayer, ContentExtractor, LANG_CONFIG, TTSConfig, TTSEngine
 
 
 class DaemonState(Enum):
