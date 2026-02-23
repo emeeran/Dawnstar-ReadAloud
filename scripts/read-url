@@ -1,35 +1,6 @@
 #!/bin/bash
-# Read URL Content
-# Fetch and read web page content aloud
+# Read URL Content (wrapper for read-article)
+# Use read-article for better content extraction
 
-SCRIPT_DIR="$(dirname "$0")/.."
-TTS="$SCRIPT_DIR/tts"
-
-if [ -z "$1" ]; then
-    echo "Usage: $0 <url>"
-    echo "Fetches and reads web page content."
-    exit 1
-fi
-
-URL="$1"
-
-echo "Fetching $URL..."
-
-# Try to get text content (requires lynx or similar)
-if command -v lynx &> /dev/null; then
-    TEXT=$(lynx -dump -nolist "$URL" 2>/dev/null)
-elif command -v curl &> /dev/null; then
-    # Basic HTML stripping with curl + sed (less accurate)
-    TEXT=$(curl -s "$URL" | sed 's/<[^>]*>//g' | sed '/^$/d')
-else
-    echo "Install lynx for better web content extraction"
-    exit 1
-fi
-
-if [ -z "$TEXT" ]; then
-    echo "Failed to extract content from URL"
-    exit 1
-fi
-
-echo "Reading..."
-echo "$TEXT" | "$TTS" -
+SCRIPT_DIR="$(dirname "$0")"
+exec "$SCRIPT_DIR/read-article" "$@"
