@@ -62,13 +62,16 @@ def clean_text(text: str) -> str:
 
 def should_skip_element(elem) -> bool:
     """Check if element should be skipped."""
+    if elem is None or elem.name is None:
+        return True
+
     # Check tag name
     if elem.name in SKIP_TAGS:
         return True
 
     # Check class and id attributes
-    classes = ' '.join(elem.get('class', []))
-    elem_id = elem.get('id', '')
+    classes = ' '.join(elem.get('class', []) or [])
+    elem_id = elem.get('id', '') or ''
     combined = f"{classes} {elem_id}".lower()
 
     for pattern in SKIP_PATTERNS:
@@ -80,6 +83,9 @@ def should_skip_element(elem) -> bool:
 
 def score_element(elem) -> int:
     """Score an element's likelihood of being main content."""
+    if elem is None or elem.name is None:
+        return 0
+
     score = 0
 
     # Check tag name
@@ -89,8 +95,8 @@ def score_element(elem) -> int:
         score += 10
 
     # Check class/id for content hints
-    classes = ' '.join(elem.get('class', []))
-    elem_id = elem.get('id', '')
+    classes = ' '.join(elem.get('class', []) or [])
+    elem_id = elem.get('id', '') or ''
     combined = f"{classes} {elem_id}".lower()
 
     for pattern in CONTENT_PATTERNS:
@@ -98,20 +104,29 @@ def score_element(elem) -> int:
             score += 30
 
     # Score by text length (more text = more likely main content)
-    text_len = len(elem.get_text(strip=True))
-    score += min(text_len / 50, 100)  # Cap at 100
+    try:
+        text_len = len(elem.get_text(strip=True))
+        score += min(text_len / 50, 100)  # Cap at 100
+    except:
+        pass
 
     # Penalize for too many links (nav areas have lots of links)
-    links = elem.find_all('a')
-    text = elem.get_text(strip=True)
-    if text:
-        link_density = len(links) / (len(text.split()) + 1)
-        if link_density > 0.3:
-            score -= 30
+    try:
+        links = elem.find_all('a')
+        text = elem.get_text(strip=True)
+        if text:
+            link_density = len(links) / (len(text.split()) + 1)
+            if link_density > 0.3:
+                score -= 30
+    except:
+        pass
 
     # Bonus for paragraph tags (article content has <p>)
-    paragraphs = elem.find_all('p')
-    score += len(paragraphs) * 5
+    try:
+        paragraphs = elem.find_all('p')
+        score += len(paragraphs) * 5
+    except:
+        pass
 
     return score
 
@@ -124,15 +139,34 @@ def extract_article(html: str, url: str = "") -> str:
 
     soup = BeautifulSoup(html, 'html.parser')
 
-    # Remove skip elements first
-    for tag in SKIP_TAGS:
-        for elem in soup.find_all(tag):
-            elem.decompose()
+    # Collect elements to remove (don't decompose while iterating)
+    to_remove = []
 
-    # Remove elements matching skip patterns
+    # Find skip elements by tag
+    for tag in SKIP_TAGS:
+        to_remove.extend(soup.find_all(tag))
+
+    # Find elements matching skip patterns
     for elem in soup.find_all(True):
-        if should_skip_element(elem):
+        try:
+            if elem and elem.name:
+                classes = ' '.join(elem.get('class', []) or [])
+                elem_id = elem.get('id', '') or ''
+                combined = f"{classes} {elem_id}".lower()
+
+                for pattern in SKIP_PATTERNS:
+                    if re.search(pattern, combined, re.IGNORECASE):
+                        to_remove.append(elem)
+                        break
+        except:
+            continue
+
+    # Now remove all at once
+    for elem in to_remove:
+        try:
             elem.decompose()
+        except:
+            pass
 
     # Try to find main content area
     candidates = []
@@ -144,8 +178,11 @@ def extract_article(html: str, url: str = "") -> str:
 
     # Score all divs/sections and pick best
     for elem in soup.find_all(['div', 'section']):
-        if len(elem.get_text(strip=True)) > 200:  # Must have substantial text
-            candidates.append(elem)
+        try:
+            if elem and len(elem.get_text(strip=True)) > 200:
+                candidates.append(elem)
+        except:
+            continue
 
     if not candidates:
         # Fallback: use body
@@ -160,10 +197,13 @@ def extract_article(html: str, url: str = "") -> str:
     # Extract text from paragraphs and headings
     parts = []
     for elem in main.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'li']):
-        text = clean_text(elem.get_text())
-        # Skip very short fragments (likely junk)
-        if len(text) > 20:
-            parts.append(text)
+        try:
+            text = clean_text(elem.get_text())
+            # Skip very short fragments (likely junk)
+            if len(text) > 20:
+                parts.append(text)
+        except:
+            continue
 
     return ' '.join(parts)
 
