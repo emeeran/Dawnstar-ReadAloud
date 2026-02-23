@@ -1,0 +1,13 @@
+# Python Dependencies
+gtts==2.5.4
+edge-tts>=6.1.9
+ebooklib>=0.18
+
+# Optional: D-Bus support (for system-wide integration)
+# Uncomment if you want D-Bus support:
+# pydbus>=0.3.0
+
+# System Dependencies (install with apt/brew/etc):
+# - mpg123 (recommended) - for audio playback
+# - poppler-utils (optional) - for PDF support (provides pdftotext)
+# - lynx or curl or wget (optional) - for URL fetching

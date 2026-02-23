@@ -1,0 +1,27 @@
+[Unit]
+Description=TTS Daemon - Text-to-Speech background service
+Documentation=https://github.com/yourname/tts
+After=network.target sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/ttsc --daemon
+Restart=on-failure
+RestartSec=3
+
+# Environment
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.cache/tts_app
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=default.target
