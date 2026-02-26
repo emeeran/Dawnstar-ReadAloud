@@ -57,4 +57,10 @@ def from_source(source: str, config: TTSConfig) -> Optional[str]:
             Logger.log(f"Read error: {error}", config)
             return None
 
+    # If it looks like a file but doesn't exist, don't treat it as direct text
+    file_extensions = ('.txt', '.pdf', '.epub', '.md', '.html', '.htm')
+    if source.lower().endswith(file_extensions) or source.startswith(('/', './', '../')):
+        Logger.log(f"File not found: {expanded_source}", config)
+        return None
+
     return source
