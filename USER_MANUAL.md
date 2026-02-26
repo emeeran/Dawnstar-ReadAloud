@@ -513,33 +513,37 @@ Long text is split into chunks for processing:
 
 ### Supported File Formats
 
-| Format | Extension | Dependencies |
-|--------|-----------|--------------|
-| Plain Text | `.txt` | None |
-| Markdown | `.md` | None |
-| PDF | `.pdf` | `poppler-utils` |
-| EPUB | `.epub` | `ebooklib`, `beautifulsoup4` |
+| Format | Extension | Dependencies | Features |
+|--------|-----------|--------------|----------|
+| Plain Text | `.txt` | None | Direct reading |
+| Markdown | `.md` | None | Direct reading |
+| PDF | `.pdf` | `pypdf` | **Smart skip** (finds Chapter 1/Intro) |
+| EPUB | `.epub` | `ebooklib`, `bs4` | **Smart skip** (skips TOC/copyright) |
+| Web Article | `URL` | `bs4` | **Ad-free** (extracts main text) |
 
-### EPUB Support
+### EPUB & PDF Smart Skip
 
-EPUB files are automatically parsed:
+The application automatically identifies and skips "front matter" (Title pages, Copyright, Table of Contents, Dedications) to get straight to the content:
 
-1. Extracts all document items
-2. Removes scripts, styles, navigation
-3. Combines text from all chapters
-4. Cleans whitespace
+- **EPUB**: Scans internal sections and skips those with low word counts or matching "front matter" patterns until the first significant chapter is found.
+- **PDF**: Scans the first 50 pages for chapter headings or introduction markers. If none are found, it skips a small percentage of the initial pages as a fallback.
 
 ```bash
-./tts mybook.epub
+./tts mybook.epub  # Starts reading from Chapter 1
+./tts report.pdf   # Skips the preface and TOC
 ```
 
 ### Web Content
 
-When a URL is provided:
-1. Fetches the page content
-2. Removes scripts, styles, navigation
-3. Extracts main text content
-4. Falls back to lynx/curl/wget if available
+When a URL is provided, the application performs high-quality article extraction:
+1. **Ad Removal**: Decomposes ads, banners, and overlays.
+2. **Nav Cleanup**: Skips site-wide navigation, footers, and sidebars.
+3. **TOC Filtering**: Identifies and removes internal "Table of Contents" blocks.
+4. **Main Content**: Intelligently identifies the article body using semantic tags and site-specific rules (e.g., Wikipedia, blogs).
+
+```bash
+./tts https://en.wikipedia.org/wiki/Artificial_intelligence
+```
 
 ---
 
@@ -669,6 +673,12 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 
 # Speak text
 ./ttsc speak "Hello from the daemon"
+
+# Read a file via daemon
+./ttsc speak document.txt
+
+# Read a URL via daemon
+./ttsc speak https://example.com
 
 # Speak clipboard selection
 ./ttsc selection

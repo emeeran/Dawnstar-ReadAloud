@@ -7,13 +7,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="$TTS_ROOT/speak_selection.sh"
+CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
+CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up XFCE keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_STOP"
+chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
 
 # Check if xfconf-query is available
 if ! command -v xfconf-query &> /dev/null; then
@@ -53,23 +54,27 @@ add_shortcut() {
     # Set the command
     xfconf-query -c "$CHANNEL" -p "/commands/custom/$slot" -t string -s "$cmd" --create
 
-    # Set the shortcut (XFCE format: <Primary><Alt>s)
-    # Convert Ctrl to <Primary> format
-    local xfce_shortcut="${shortcut//Ctrl/<Primary>}"
+    # Set the shortcut (XFCE format: <Shift><Super>s)
+    # Convert to XFCE format
+    local xfce_shortcut="${shortcut//Shift/<Shift>}"
+    xfce_shortcut="${xfce_shortcut//Meta/<Super>}"
+    xfce_shortcut="${xfce_shortcut//Ctrl/<Primary>}"
     xfce_shortcut="${xfce_shortcut//Alt/<Alt>}"
 
-    xfconf-query -c "$CHANNEL" -p "/commands/custom/$slot" -t string -s "$cmd" --create
-
-    echo "  Added '$name' at slot $slot"
+    echo "  Added '$name' at slot $slot ($xfce_shortcut)"
 }
 
-# Add Speak Selection shortcut
+# Add Speak Selection shortcut (Shift+Meta+S)
 SPEAK_SLOT=$NEXT_SLOT
-add_shortcut "$SPEAK_SLOT" "Speak Selection" "$CMD_SPEAK" "Ctrl+Alt+s"
+add_shortcut "$SPEAK_SLOT" "Speak Selection" "$CMD_SPEAK" "Shift+Meta+s"
 
-# Add Stop Speaking shortcut
-STOP_SLOT=$((NEXT_SLOT + 1))
-add_shortcut "$STOP_SLOT" "Stop Speaking" "$CMD_STOP" "Ctrl+Alt+q"
+# Add Pause Speaking shortcut (Shift+Meta+C)
+PAUSE_SLOT=$((NEXT_SLOT + 1))
+add_shortcut "$PAUSE_SLOT" "Pause Speaking" "$CMD_PAUSE" "Shift+Meta+c"
+
+# Add Stop Speaking shortcut (Shift+Meta+Q)
+STOP_SLOT=$((NEXT_SLOT + 2))
+add_shortcut "$STOP_SLOT" "Stop Speaking" "$CMD_STOP" "Shift+Meta+q"
 
 # Note: In XFCE, you may also need to set the actual key binding
 # This is typically done through the keyboard settings GUI
@@ -81,6 +86,7 @@ echo ""
 echo "Note: You may need to manually bind the keys in:"
 echo "  Settings > Keyboard > Application Shortcuts"
 echo ""
-echo "Or run these commands:"
+echo "Or run these commands to bind the actual keys:"
 echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$SPEAK_SLOT' -t string -s '$CMD_SPEAK'"
+echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$PAUSE_SLOT' -t string -s '$CMD_PAUSE'"
 echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$STOP_SLOT' -t string -s '$CMD_STOP'"

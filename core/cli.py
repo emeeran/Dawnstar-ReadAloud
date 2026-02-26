@@ -5,13 +5,15 @@ argparse CLI for the TTS application.
 """
 
 import argparse
+import os
+import subprocess
 import sys
 from enum import Enum
 from typing import List, Optional
 
 from config import TTSAppConfig, generate_sample_config
 
-from .constants import CACHE_DIR
+from .constants import ANSI_CLEAR_LINE, ANSI_GREY_BG, ANSI_RESET, CACHE_DIR
 from .config import TTSConfig
 from .engine import TTSEngine
 from .extractor import ContentExtractor
@@ -150,6 +152,11 @@ Examples:
             action="store_true",
             help="Reset configuration to defaults",
         )
+        parser.add_argument(
+            "--sentence-file",
+            metavar="FILE",
+            help="Write current sentence to file before speaking (for cursor tracking)",
+        )
         return parser.parse_args()
 
     def handle_get_clipboard(self) -> int:
@@ -239,6 +246,8 @@ Examples:
         chunks = ContentExtractor.chunk_text(clean)
 
         for chunk in chunks:
+            if self.show_progress:
+                print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
             audio = tts.generate(chunk)
             if audio and not AudioPlayer.play(audio, self.tts_config):
                 Logger.error("Playback failed")
@@ -295,6 +304,19 @@ Examples:
         for key, value in self.app_config.to_dict().items():
             print(f"  {key}: {value}")
 
+    def _write_current_sentence(self, sentence: str) -> None:
+        """Write current sentence to file if --sentence-file was specified.
+
+        Args:
+            sentence: The sentence about to be spoken.
+        """
+        if hasattr(self.args, 'sentence_file') and self.args.sentence_file:
+            try:
+                with open(self.args.sentence_file, 'w') as f:
+                    f.write(sentence)
+            except OSError:
+                pass  # Silently ignore file write errors
+
     def run_with_source(self) -> int:
         """Run with text source (file, URL, or direct text).
 
@@ -315,17 +337,19 @@ Examples:
 
         tts = TTSEngine(self.tts_config)
         for index, chunk in enumerate(chunks, 1):
+            # Write current sentence to file for cursor tracking
+            self._write_current_sentence(chunk)
+
+            if self.show_progress:
+                # Highlight current sentence with grey background
+                print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
+
             audio = tts.generate(chunk)
             if audio:
-                if self.show_progress and len(chunks) > 1:
-                    print(f"[{index}/{len(chunks)}]", end=" ", flush=True)
                 if not AudioPlayer.play(audio, self.tts_config):
                     Logger.error("Playback failed")
                     NotificationManager.notify("TTS", "Playback failed")
                     return 1
-
-        if self.show_progress and len(chunks) > 1:
-            print()
 
         if len(chunks) > 1:
             NotificationManager.notify("TTS", "Finished speaking", timeout=1500)

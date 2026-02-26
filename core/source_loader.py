@@ -7,21 +7,30 @@ from typing import Optional
 
 from .config import TTSConfig
 from .document_readers import extract_epub, extract_pdf
+from .url_reader import extract_url_content
 from .logger import Logger
 
 __all__ = ["from_source"]
 
 
 def from_source(source: str, config: TTSConfig) -> Optional[str]:
-    """Load text from stdin/file path or return direct text input."""
+    """Load text from stdin/file path/URL or return direct text input."""
     if source == "-":
         return sys.stdin.read()
 
     source = source.strip().strip("'").strip('"')
 
-    if os.path.exists(source):
+    # Expand user (~) and environment variables
+    expanded_source = os.path.expanduser(os.path.expandvars(source))
+
+    # Check for URL
+    if source.startswith(("http://", "https://")):
+        Logger.log(f"Fetching URL: {source}", config)
+        return extract_url_content(source)
+
+    if os.path.exists(expanded_source):
         try:
-            resolved_path = Path(source).resolve()
+            resolved_path = Path(expanded_source).resolve()
         except (OSError, ValueError) as error:
             Logger.log(f"Invalid path: {error}", config)
             return None
@@ -36,7 +45,7 @@ def from_source(source: str, config: TTSConfig) -> Optional[str]:
             Logger.log("Access denied: path outside allowed directories", config)
             return None
 
-        source_lower = source.lower()
+        source_lower = expanded_source.lower()
         if source_lower.endswith(".epub"):
             return extract_epub(str(resolved_path), config)
         if source_lower.endswith(".pdf"):

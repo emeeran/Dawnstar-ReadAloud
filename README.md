@@ -33,7 +33,7 @@ python3 configure.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+S` | Speak selected/highlighted text |
+| `Ctrl+Alt+S` | Speak selected/highlighted text (no scrolling) |
 | `Ctrl+Alt+Q` | Stop speaking |
 
 ## Basic Usage
@@ -42,7 +42,9 @@ python3 configure.py
 ./tts "text to speak"           # Direct text
 ./tts document.txt              # Read file
 ./tts book.epub                 # Read EPUB (skips front matter)
-./tts -l en-uk -s slow file.txt # British English, slow speed
+./tts report.pdf                # Read PDF (skips preface/TOC)
+./tts https://example.com       # Read web article (skips ads/nav)
+./tts -l ta -s slow "வணக்கம்"   # Tamil at slow speed
 cat notes.txt | ./tts -         # Read from stdin
 ```
 

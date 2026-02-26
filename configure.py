@@ -75,7 +75,7 @@ exec {SCRIPT_DIR}/stop_speaking.sh "$@"
 
     # Speak selection wrapper
     speak_content = f"""#!/bin/bash
-exec {SCRIPT_DIR}/speak_selection.sh "$@"
+exec {SCRIPT_DIR}/speak_from_cursor.sh "$@"
 """
     CMD_SPEAK.write_text(speak_content)
     CMD_SPEAK.chmod(0o755)

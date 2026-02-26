@@ -39,14 +39,19 @@ FRONT_MATTER_PATTERNS = [
     r"\bindex\b",
     r"\bglossary\b",
     r"\breferences?\b",
+    r"\bmap\b",
+    r"author'?s\s+note",
+    r"title\s+page",
+    r"half\s+title",
 ]
 
 CHAPTER_PATTERNS = [
-    r"^chapter\s+\d+",
-    r"^chapter\s+one\b",
-    r"^part\s+one\b",
-    r"^1\s*$",
-    r"^\d+\.\s+\w",
+    r"^\s*chapter\s+(?:one|[\d\w]+)\b",
+    r"^\s*part\s+(?:one|[\d\w]+)\b",
+    r"^\s*introduction\b",
+    r"^\s*book\s+(?:one|[\d\w]+)\b",
+    r"^\s*[\d]+\.\s+\w",
+    r"^\s*i\.\s+\w",
 ]
 
 
@@ -56,6 +61,20 @@ def is_front_matter(filename: str, title: str = "") -> bool:
     for pattern in FRONT_MATTER_PATTERNS:
         if re.search(pattern, check, re.IGNORECASE):
             return True
+    return False
+
+
+def _is_chapter_start(text: str) -> bool:
+    """Check if text starts with a chapter-like heading."""
+    lines = text.splitlines()
+    # Check first few lines for a chapter heading
+    for line in lines[:10]:
+        line_stripped = line.strip().lower()
+        if not line_stripped:
+            continue
+        for pattern in CHAPTER_PATTERNS:
+            if re.match(pattern, line_stripped):
+                return True
     return False
 
 
@@ -76,24 +95,45 @@ def _should_skip_initial_section(
     is_front: bool,
     word_count: int,
     found_chapter: bool,
-    skip_count: int,
+    text_preview: str,
 ) -> bool:
     if found_chapter:
         return False
-    return is_front or (word_count < 100 and skip_count < 5)
+    
+    # If it's explicitly front matter, skip it
+    if is_front:
+        return True
+    
+    # Check if this section starts with a chapter heading
+    if _is_chapter_start(text_preview):
+        return False
+        
+    # Skip small sections that aren't chapters
+    return word_count < 250
 
 
-def _extract_pdf_text(reader: object, skip_pages: int) -> str:
+def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
+    """Extract text from PDF pages, looking for the first chapter."""
     parts: list[str] = []
-    for page in reader.pages[skip_pages:]:
+    content_start_page = 0
+    
+    # Scan first few pages for chapter markers
+    for i in range(min(len(reader.pages), max_pages)):
+        page_text = reader.pages[i].extract_text() or ""
+        if _is_chapter_start(page_text):
+            content_start_page = i
+            break
+            
+    # If no chapter marker found, default to skipping first few pages
+    if content_start_page == 0 and len(reader.pages) > 5:
+        content_start_page = min(3, len(reader.pages) // 10)
+
+    for page in reader.pages[content_start_page:]:
         page_text = page.extract_text() or ""
         if page_text.strip():
             parts.append(page_text)
 
-    text = "\n".join(parts).strip()
-    if not text:
-        text = "\n".join((page.extract_text() or "") for page in reader.pages).strip()
-    return text
+    return "\n".join(parts).strip(), content_start_page
 
 
 def _find_content_start(lines: list[str]) -> int:
@@ -121,29 +161,26 @@ def extract_epub(path: str, config: TTSConfig) -> Optional[str]:
 
         main_content: list[str] = []
         found_chapter = False
-        skip_count = 0
 
         for filename, item in documents:
             soup = BeautifulSoup(item.get_content(), "html.parser")
-
-            title = _extract_title(soup)
-
-            is_front = is_front_matter(filename, title)
-
-            text = soup.get_text(separator=" ")
-            word_count = _word_count(text)
-
-            if _should_skip_initial_section(is_front, word_count, found_chapter, skip_count):
-                skip_count += 1
-                if config.verbose:
-                    print(f"  Skipping: {filename} ({word_count} words)")
-                continue
-            found_chapter = True
-
+            
+            # Clean soup before word count
             for script in soup(["script", "style", "nav"]):
                 script.decompose()
 
+            title = _extract_title(soup)
+            is_front = is_front_matter(filename, title)
+            
             text = " ".join(soup.get_text(separator=" ").split())
+            word_count = _word_count(text)
+
+            if _should_skip_initial_section(is_front, word_count, found_chapter, text[:500]):
+                if config.verbose:
+                    print(f"  Skipping: {filename} ({word_count} words)")
+                continue
+            
+            found_chapter = True
             if text.strip() and word_count >= 20:
                 main_content.append(text.strip())
 
@@ -168,10 +205,12 @@ def extract_pdf(path: str, config: TTSConfig) -> Optional[str]:
         if page_count == 0:
             return None
 
-        skip_pages = min(3, max(1, page_count // 10))
-        text = _extract_pdf_text(reader, skip_pages)
+        text, start_page = _extract_pdf_text(reader)
         if not text:
             return None
+
+        if config.verbose:
+            print(f"  Starting PDF content from page {start_page + 1}")
 
         lines = text.split("\n")
         content_start = _find_content_start(lines)

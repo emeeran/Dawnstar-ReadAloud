@@ -7,7 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="$TTS_ROOT/speak_selection.sh"
+CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
+CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 SCHEMA_KEYS="org.gnome.settings-daemon.plugins.media-keys"
@@ -16,13 +17,15 @@ SCHEMA_BINDING="${SCHEMA_KEYS}.custom-keybinding"
 echo "Setting up GNOME keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_STOP"
+chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
 
 # Define shortcuts (index, name, command, binding)
 # Custom0 is reserved (e.g., for Flameshot)
+# Keybindings: Shift+Meta (Super) = <Shift><Super>
 SHORTCUTS=(
-    "1|Speak Selection|/bin/bash -lc '$CMD_SPEAK'|<Control><Alt>s"
-    "2|Stop Speaking|/bin/bash -lc '$CMD_STOP'|<Control><Alt>q"
+    "1|Speak Selection|/bin/bash -lc '$CMD_SPEAK'|<Shift><Super>s"
+    "2|Pause Speaking|/bin/bash -lc '$CMD_PAUSE'|<Shift><Super>c"
+    "3|Stop Speaking|/bin/bash -lc '$CMD_STOP'|<Shift><Super>q"
 )
 
 # Build binding list

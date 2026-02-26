@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from ttsd import TTSDaemon, IPCClient
 from ttsd.ipc import UnixSocketServer
+from core import ContentExtractor, TTSConfig
 
 
 def start_daemon(args):
@@ -97,7 +98,14 @@ def speak_text(args):
         print("Daemon not running. Start with: ttsc --daemon")
         return 1
 
-    text = " ".join(args.text)
+    config = TTSConfig(lang=args.lang or "en-us", speed=args.speed or "normal")
+    source_text = " ".join(args.text)
+    text = ContentExtractor.from_source(source_text, config)
+
+    if not text:
+        print(f"Error: Could not load content from {source_text}")
+        return 1
+
     options = {}
     if args.lang:
         options["lang"] = args.lang

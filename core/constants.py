@@ -9,12 +9,17 @@ This module defines all application-wide constants including:
 
 from pathlib import Path
 
+# ANSI escape sequences for highlighting
+ANSI_RESET = "\033[0m"
+ANSI_GREY_BG = "\033[48;5;238m"  # ~20% grey background
+ANSI_CLEAR_LINE = "\033[K"
+
 # Cache configuration
 CACHE_DIR: Path = Path.home() / ".cache" / "tts_app"
 """Directory for caching generated audio files."""
 
 # Text processing
-CHUNK_SIZE: int = 500
+CHUNK_SIZE: int = 100
 """Maximum characters per text chunk for TTS processing."""
 
 DEFAULT_LANG: str = "en-us"

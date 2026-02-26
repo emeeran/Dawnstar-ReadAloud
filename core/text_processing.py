@@ -19,16 +19,19 @@ def clean_text(text: str) -> str:
 
 
 def chunk_text(text: str, size: int = CHUNK_SIZE) -> list[str]:
-    """Split text into near-sentence chunks with max size cap."""
+    """Split text into chunks, prioritizing single sentences for better highlighting."""
     cleaned = text.strip()
     if not cleaned:
         return []
-    if len(cleaned) <= size:
-        return [cleaned]
-
+    
+    # If size is small (e.g., 1-200), we treat it as "sentence mode"
     sentences = [item.strip() for item in _RE_SENTENCE_SPLIT.split(cleaned) if item.strip()]
     if not sentences:
         return [cleaned[index:index + size].strip() for index in range(0, len(cleaned), size)]
+
+    if size <= 200:
+        # Sentence-by-sentence mode
+        return sentences
 
     chunks: list[str] = []
     current = ""
