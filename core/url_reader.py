@@ -34,18 +34,29 @@ CONTENT_PATTERNS = [
     r'body', r'main', r'text', r'blog', r'news'
 ]
 
+# Pre-compiled regex patterns for text cleaning
+_RE_WHITESPACE = re.compile(r'\s+')
+_RE_URL = re.compile(r'https?://\S+')
+_RE_EMAIL = re.compile(r'\S+@\S+')
+_RE_SUBSCRIBE = re.compile(r'Subscribe\s*$', re.IGNORECASE)
+_RE_NEWSLETTER = re.compile(r'Newsletter\s*$', re.IGNORECASE)
+
+# Pre-compiled patterns for element scoring
+_COMPILED_SKIP_PATTERNS = [re.compile(p, re.IGNORECASE) for p in SKIP_PATTERNS]
+_COMPILED_CONTENT_PATTERNS = [re.compile(p, re.IGNORECASE) for p in CONTENT_PATTERNS]
+
 
 def _clean_text(text: str) -> str:
     """Clean and normalize text."""
     # Remove excessive whitespace
-    text = re.sub(r'\s+', ' ', text)
+    text = _RE_WHITESPACE.sub(' ', text)
     # Remove URLs
-    text = re.sub(r'https?://\S+', '', text)
+    text = _RE_URL.sub('', text)
     # Remove email addresses
-    text = re.sub(r'\S+@\S+', '', text)
+    text = _RE_EMAIL.sub('', text)
     # Remove common junk
-    text = re.sub(r'Subscribe\s*$', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'Newsletter\s*$', '', text, flags=re.IGNORECASE)
+    text = _RE_SUBSCRIBE.sub('', text)
+    text = _RE_NEWSLETTER.sub('', text)
     return text.strip()
 
 
@@ -67,8 +78,8 @@ def _score_element(elem) -> int:
     elem_id = elem.get('id', '') or ''
     combined = f"{classes} {elem_id}".lower()
 
-    for pattern in CONTENT_PATTERNS:
-        if re.search(pattern, combined, re.IGNORECASE):
+    for pattern in _COMPILED_CONTENT_PATTERNS:
+        if pattern.search(combined):
             score += 30
 
     # Score by text length (more text = more likely main content)
@@ -135,13 +146,13 @@ def extract_url_content(url: str, timeout: int = 20) -> Optional[str]:
 
                 # Skip "Table of Contents" or navigation-heavy areas
                 is_toc = "table of contents" in text_preview or "contents" == text_preview
-                
-                for pattern in SKIP_PATTERNS:
-                    # Don't decompose if it's a main-looking ID/class
-                    if any(p in combined for p in ['main', 'article', 'body-content']):
-                        continue
 
-                    if re.search(pattern, combined, re.IGNORECASE) or is_toc:
+                # Don't decompose if it's a main-looking ID/class
+                if any(p in combined for p in ['main', 'article', 'body-content']):
+                    continue
+
+                for pattern in _COMPILED_SKIP_PATTERNS:
+                    if pattern.search(combined) or is_toc:
                         elem.decompose()
                         break
             except:

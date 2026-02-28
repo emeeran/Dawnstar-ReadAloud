@@ -54,12 +54,16 @@ CHAPTER_PATTERNS = [
     r"^\s*i\.\s+\w",
 ]
 
+# Pre-compiled patterns for performance
+_COMPILED_FRONT_MATTER = [re.compile(p, re.IGNORECASE) for p in FRONT_MATTER_PATTERNS]
+_COMPILED_CHAPTER = [re.compile(p) for p in CHAPTER_PATTERNS]
+
 
 def is_front_matter(filename: str, title: str = "") -> bool:
     """Detect front/back matter sections by filename/title heuristics."""
     check = f"{filename} {title}".lower()
-    for pattern in FRONT_MATTER_PATTERNS:
-        if re.search(pattern, check, re.IGNORECASE):
+    for pattern in _COMPILED_FRONT_MATTER:
+        if pattern.search(check):
             return True
     return False
 
@@ -72,8 +76,8 @@ def _is_chapter_start(text: str) -> bool:
         line_stripped = line.strip().lower()
         if not line_stripped:
             continue
-        for pattern in CHAPTER_PATTERNS:
-            if re.match(pattern, line_stripped):
+        for pattern in _COMPILED_CHAPTER:
+            if pattern.match(line_stripped):
                 return True
     return False
 
@@ -87,8 +91,7 @@ def _extract_title(soup: object) -> str:
 
 
 def _word_count(text: str) -> int:
-    cleaned = " ".join(text.split())
-    return len(cleaned.split())
+    return len(text.split())
 
 
 def _should_skip_initial_section(
@@ -139,8 +142,8 @@ def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
 def _find_content_start(lines: list[str]) -> int:
     for index, line in enumerate(lines[:100]):
         line_stripped = line.strip().lower()
-        for pattern in CHAPTER_PATTERNS:
-            if re.match(pattern, line_stripped):
+        for pattern in _COMPILED_CHAPTER:
+            if pattern.match(line_stripped):
                 return index
     return 0
 
