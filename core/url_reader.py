@@ -86,7 +86,7 @@ def _score_element(elem) -> int:
     try:
         text_len = len(elem.get_text(strip=True))
         score += min(text_len / 50, 100)  # Cap at 100
-    except:
+    except (AttributeError, TypeError):
         pass
 
     # Penalize for too many links (nav areas have lots of links)
@@ -97,14 +97,14 @@ def _score_element(elem) -> int:
             link_density = len(links) / (len(text.split()) + 1)
             if link_density > 0.3:
                 score -= 30
-    except:
+    except (AttributeError, TypeError):
         pass
 
     # Bonus for paragraph tags (article content has <p>)
     try:
         paragraphs = elem.find_all('p')
         score += len(paragraphs) * 5
-    except:
+    except (AttributeError, TypeError):
         pass
 
     return score
@@ -125,7 +125,7 @@ def extract_url_content(url: str, timeout: int = 20) -> Optional[str]:
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:
             html = response.read().decode('utf-8', errors='ignore')
-    except Exception:
+    except (urllib.error.URLError, ValueError) as e:
         return None
 
     soup = BeautifulSoup(html, 'html.parser')
@@ -155,7 +155,7 @@ def extract_url_content(url: str, timeout: int = 20) -> Optional[str]:
                     if pattern.search(combined) or is_toc:
                         elem.decompose()
                         break
-            except:
+            except (AttributeError, RuntimeError):
                 continue
 
     # Try to find main content area

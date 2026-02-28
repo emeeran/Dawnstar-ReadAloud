@@ -7,6 +7,7 @@ from typing import Optional
 
 from .config import TTSConfig
 from .document_readers import extract_epub, extract_pdf
+from .exceptions import SecurityError
 from .url_reader import extract_url_content
 from .logger import Logger
 
@@ -43,7 +44,8 @@ def from_source(source: str, config: TTSConfig) -> Optional[str]:
 
         if not is_allowed:
             Logger.log("Access denied: path outside allowed directories", config)
-            return None
+            raise SecurityError("Access denied: path outside allowed directories")
+
 
         source_lower = expanded_source.lower()
         if source_lower.endswith(".epub"):

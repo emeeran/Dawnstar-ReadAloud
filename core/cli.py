@@ -242,10 +242,12 @@ Examples:
         Returns:
             True if successful, False if playback failed.
         """
-        clean = ContentExtractor.clean_text(text)
-        chunks = ContentExtractor.chunk_text(clean)
-
-        for chunk in chunks:
+        try:
+            clean = ContentExtractor.clean_text(text)
+            chunks = ContentExtractor.chunk_text(clean)
+        except ExtractionError as e:
+            Logger.error(f"Text processing error: {e}")
+            return False
             if self.show_progress:
                 print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
             audio = tts.generate(chunk)
@@ -323,12 +325,20 @@ Examples:
         Returns:
             Exit code (0 on success, 1 on failure).
         """
-        text = ContentExtractor.from_source(" ".join(self.args.source), self.tts_config)
+        try:
+            text = ContentExtractor.from_source(" ".join(self.args.source), self.tts_config)
+        except (ExtractionError, e:
+            Logger.error(f"Content extraction error: {e}")
+            return 1
         if not text:
             return 1
 
-        clean_text = ContentExtractor.clean_text(text)
-        chunks = ContentExtractor.chunk_text(clean_text)
+        try:
+            clean_text = ContentExtractor.clean_text(text)
+            chunks = ContentExtractor.chunk_text(clean_text)
+        except ExtractionError as e:
+            Logger.error(f"Text processing error: {e}")
+            return 1
 
         Logger.log(f"Speaking {len(chunks)} chunks...", self.tts_config)
 
