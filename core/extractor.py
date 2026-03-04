@@ -1,6 +1,5 @@
 """Content extraction and preprocessing utilities."""
 
-from typing import List, Optional
 
 from .config import TTSConfig
 from .constants import CHUNK_SIZE
@@ -24,11 +23,11 @@ class ContentExtractor:
         return clean_text(text)
 
     @staticmethod
-    def chunk_text(text: str, size: int = CHUNK_SIZE) -> List[str]:
+    def chunk_text(text: str, size: int = CHUNK_SIZE) -> list[str]:
         return chunk_text(text, size=size)
 
     @classmethod
-    def from_source(cls, source: str, config: TTSConfig) -> Optional[str]:
+    def from_source(cls, source: str, config: TTSConfig) -> str | None:
         return from_source(source, config)
 
     @staticmethod
@@ -36,9 +35,9 @@ class ContentExtractor:
         return is_front_matter(filename, title)
 
     @staticmethod
-    def _extract_epub(path: str, config: TTSConfig) -> Optional[str]:
+    def _extract_epub(path: str, config: TTSConfig) -> str | None:
         return extract_epub(path, config)
 
     @staticmethod
-    def _extract_pdf(path: str, config: TTSConfig) -> Optional[str]:
+    def _extract_pdf(path: str, config: TTSConfig) -> str | None:
         return extract_pdf(path, config)

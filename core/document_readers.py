@@ -1,7 +1,6 @@
 """Document extraction helpers (EPUB/PDF)."""
 
 import re
-from typing import Optional
 
 from .config import TTSConfig
 from .logger import Logger
@@ -62,10 +61,7 @@ _COMPILED_CHAPTER = [re.compile(p) for p in CHAPTER_PATTERNS]
 def is_front_matter(filename: str, title: str = "") -> bool:
     """Detect front/back matter sections by filename/title heuristics."""
     check = f"{filename} {title}".lower()
-    for pattern in _COMPILED_FRONT_MATTER:
-        if pattern.search(check):
-            return True
-    return False
+    return any(pattern.search(check) for pattern in _COMPILED_FRONT_MATTER)
 
 
 def _is_chapter_start(text: str) -> bool:
@@ -102,15 +98,15 @@ def _should_skip_initial_section(
 ) -> bool:
     if found_chapter:
         return False
-    
+
     # If it's explicitly front matter, skip it
     if is_front:
         return True
-    
+
     # Check if this section starts with a chapter heading
     if _is_chapter_start(text_preview):
         return False
-        
+
     # Skip small sections that aren't chapters
     return word_count < 250
 
@@ -119,14 +115,14 @@ def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
     """Extract text from PDF pages, looking for the first chapter."""
     parts: list[str] = []
     content_start_page = 0
-    
+
     # Scan first few pages for chapter markers
     for i in range(min(len(reader.pages), max_pages)):
         page_text = reader.pages[i].extract_text() or ""
         if _is_chapter_start(page_text):
             content_start_page = i
             break
-            
+
     # If no chapter marker found, default to skipping first few pages
     if content_start_page == 0 and len(reader.pages) > 5:
         content_start_page = min(3, len(reader.pages) // 10)
@@ -148,7 +144,7 @@ def _find_content_start(lines: list[str]) -> int:
     return 0
 
 
-def extract_epub(path: str, config: TTSConfig) -> Optional[str]:
+def extract_epub(path: str, config: TTSConfig) -> str | None:
     """Extract main text from EPUB, skipping likely front matter."""
     try:
         import ebooklib
@@ -167,14 +163,14 @@ def extract_epub(path: str, config: TTSConfig) -> Optional[str]:
 
         for filename, item in documents:
             soup = BeautifulSoup(item.get_content(), "html.parser")
-            
+
             # Clean soup before word count
             for script in soup(["script", "style", "nav"]):
                 script.decompose()
 
             title = _extract_title(soup)
             is_front = is_front_matter(filename, title)
-            
+
             text = " ".join(soup.get_text(separator=" ").split())
             word_count = _word_count(text)
 
@@ -182,7 +178,7 @@ def extract_epub(path: str, config: TTSConfig) -> Optional[str]:
                 if config.verbose:
                     print(f"  Skipping: {filename} ({word_count} words)")
                 continue
-            
+
             found_chapter = True
             if text.strip() and word_count >= 20:
                 main_content.append(text.strip())
@@ -198,7 +194,7 @@ def extract_epub(path: str, config: TTSConfig) -> Optional[str]:
         return None
 
 
-def extract_pdf(path: str, config: TTSConfig) -> Optional[str]:
+def extract_pdf(path: str, config: TTSConfig) -> str | None:
     """Extract main text from PDF and trim likely preface/TOC lines."""
     try:
         from pypdf import PdfReader

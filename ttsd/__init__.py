@@ -20,8 +20,8 @@ Usage:
     client.speak("Hello world")
 """
 
-from .daemon import TTSDaemon, DaemonState, Job, Command
-from .ipc import UnixSocketServer, IPCClient
+from .daemon import Command, DaemonState, Job, TTSDaemon
+from .ipc import IPCClient, UnixSocketServer
 
 __all__ = [
     "TTSDaemon",

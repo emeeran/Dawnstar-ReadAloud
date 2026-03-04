@@ -6,26 +6,27 @@ and multi-engine TTS generation. Optional component for low-latency
 speech synthesis.
 """
 
+import contextlib
 import os
 import queue
 import signal
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 # Import from parent module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import (
+    LANG_CONFIG,
     AudioPlayer,
     ContentExtractor,
     EngineError,
-    IPCError,
-    LANG_CONFIG,
     PlaybackError,
     TTSConfig,
     TTSEngine,
@@ -46,9 +47,9 @@ class Command:
     """Command sent to the daemon."""
 
     action: str
-    text: Optional[str] = None
-    options: Dict[str, Any] = field(default_factory=dict)
-    job_id: Optional[int] = None
+    text: str | None = None
+    options: dict[str, Any] = field(default_factory=dict)
+    job_id: int | None = None
 
 
 @dataclass
@@ -57,7 +58,7 @@ class Job:
 
     job_id: int
     text: str
-    options: Dict[str, Any]
+    options: dict[str, Any]
     status: str = "queued"
     progress: float = 0.0
 
@@ -104,9 +105,9 @@ class TTSDaemon:
         self.config = TTSConfig(lang, cache_enabled, verbose, speed)
         self.state = DaemonState.IDLE
         self.command_queue: queue.Queue[Command] = queue.Queue()
-        self.jobs: Dict[int, Job] = {}
+        self.jobs: dict[int, Job] = {}
         self.job_counter = 0
-        self.current_job: Optional[Job] = None
+        self.current_job: Job | None = None
 
         self._running = False
         self._pause_event = threading.Event()
@@ -115,9 +116,9 @@ class TTSDaemon:
         self._lock = threading.Lock()
 
         # Callbacks
-        self.on_state_change: Optional[Callable[[DaemonState], None]] = None
-        self.on_job_complete: Optional[Callable[[Job], None]] = None
-        self.on_progress: Optional[Callable[[int, float], None]] = None
+        self.on_state_change: Callable[[DaemonState], None] | None = None
+        self.on_job_complete: Callable[[Job], None] | None = None
+        self.on_progress: Callable[[int, float], None] | None = None
 
         # Pre-initialize TTS engine for low latency
         self.engine = TTSEngine(self.config)
@@ -130,7 +131,7 @@ class TTSDaemon:
                 if self.on_state_change:
                     self.on_state_change(new_state)
 
-    def submit_job(self, text: str, options: Optional[Dict[str, Any]] = None) -> int:
+    def submit_job(self, text: str, options: dict[str, Any] | None = None) -> int:
         """Submit a new TTS job to the queue."""
         with self._lock:
             self.job_counter += 1
@@ -180,7 +181,7 @@ class TTSDaemon:
             return True
         return False
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Get current daemon state."""
         with self._lock:
             state_info = {
@@ -211,15 +212,13 @@ class TTSDaemon:
     def _kill_playback(self) -> None:
         """Kill any active audio playback."""
         for player in ["mpg123", "cvlc", "ffplay", "aplay", "paplay"]:
-            try:
+            with contextlib.suppress(OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
                 subprocess.run(
                     ["pkill", "-f", player],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     timeout=2,
                 )
-            except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
-                pass
 
     def _process_job(self, job: Job) -> bool:
         """Process a single TTS job.
@@ -295,8 +294,8 @@ class TTSDaemon:
 
         # Handle signals (only in main thread)
         try:
-            signal.signal(signal.SIGTERM, lambda s, f: self.shutdown())
-            signal.signal(signal.SIGINT, lambda s, f: self.shutdown())
+            signal.signal(signal.SIGTERM, lambda *_: self.shutdown())
+            signal.signal(signal.SIGINT, lambda *_: self.shutdown())
         except ValueError:
             # Signal handling only works in main thread
             pass

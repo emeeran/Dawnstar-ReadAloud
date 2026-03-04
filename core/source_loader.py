@@ -3,18 +3,17 @@
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from .config import TTSConfig
 from .document_readers import extract_epub, extract_pdf
 from .exceptions import SecurityError
-from .url_reader import extract_url_content
 from .logger import Logger
+from .url_reader import extract_url_content
 
 __all__ = ["from_source"]
 
 
-def from_source(source: str, config: TTSConfig) -> Optional[str]:
+def from_source(source: str, config: TTSConfig) -> str | None:
     """Load text from stdin/file path/URL or return direct text input."""
     if source == "-":
         return sys.stdin.read()

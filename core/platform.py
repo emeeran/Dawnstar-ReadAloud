@@ -15,7 +15,6 @@ import shutil
 import subprocess
 import sys
 from enum import Enum
-from typing import Optional
 
 
 class DisplayServer(Enum):
@@ -116,7 +115,7 @@ def detect_desktop_environment() -> DesktopEnvironment:
     return DesktopEnvironment.UNKNOWN
 
 
-def get_clipboard_text() -> Optional[str]:
+def get_clipboard_text() -> str | None:
     """Get clipboard text - cross-platform, auto-detects method.
 
     On Linux X11, tries primary selection (highlighted text) first,
@@ -159,7 +158,7 @@ def get_clipboard_text() -> Optional[str]:
     return None
 
 
-def _get_clipboard_windows() -> Optional[str]:
+def _get_clipboard_windows() -> str | None:
     """Get clipboard text on Windows.
 
     Returns:
@@ -190,7 +189,7 @@ def _get_clipboard_windows() -> Optional[str]:
         return None
 
 
-def _get_clipboard_macos() -> Optional[str]:
+def _get_clipboard_macos() -> str | None:
     """Get clipboard text on macOS.
 
     Returns:
@@ -208,7 +207,7 @@ def _get_clipboard_macos() -> Optional[str]:
         return None
 
 
-def _get_clipboard_wayland() -> Optional[str]:
+def _get_clipboard_wayland() -> str | None:
     """Get clipboard text on Wayland.
 
     Returns:
@@ -232,7 +231,7 @@ def _get_clipboard_wayland() -> Optional[str]:
     return None
 
 
-def _get_clipboard_x11() -> Optional[str]:
+def _get_clipboard_x11() -> str | None:
     """Get clipboard text on X11.
 
     Returns:

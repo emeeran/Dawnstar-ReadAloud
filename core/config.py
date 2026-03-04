@@ -5,7 +5,6 @@ the TTS application for engine settings and behavior control.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from .constants import CACHE_DIR, DEFAULT_LANG, LANG_ALIASES, LANG_CONFIG
 
@@ -34,7 +33,7 @@ class TTSConfig:
     cache_enabled: bool = True
     verbose: bool = False
     speed: str = "normal"
-    engine: Optional[str] = None
+    engine: str | None = None
 
     def __post_init__(self) -> None:
         """Normalize language code and ensure cache directory exists.

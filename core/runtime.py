@@ -3,7 +3,7 @@
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .constants import CACHE_DIR
 
@@ -12,7 +12,7 @@ class NotificationManager:
     """Desktop notification support."""
 
     _enabled: bool = True
-    _available: Optional[bool] = None
+    _available: bool | None = None
 
     @classmethod
     def is_available(cls) -> bool:

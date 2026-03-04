@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from typing import List, Optional
 
 from .config import TTSConfig
 from .constants import TEMP_FILE_SUFFIX
@@ -14,7 +13,7 @@ from .logger import Logger
 class AudioPlayer:
     """Auto-detecting audio player for MP3/WAV playback."""
 
-    _player_cmd: Optional[List[str]] = None
+    _player_cmd: list[str] | None = None
 
     PLAYER_CANDIDATES = [
         ("mpg123", ["-q"]),
@@ -24,7 +23,7 @@ class AudioPlayer:
     ]
 
     @classmethod
-    def get_player(cls) -> Optional[List[str]]:
+    def get_player(cls) -> list[str] | None:
         if cls._player_cmd:
             return cls._player_cmd
 
@@ -36,7 +35,7 @@ class AudioPlayer:
         return None
 
     @classmethod
-    def _play_with_temp_file(cls, cmd: List[str], audio_data: bytes) -> bool:
+    def _play_with_temp_file(cls, cmd: list[str], audio_data: bytes) -> bool:
         with tempfile.NamedTemporaryFile(suffix=TEMP_FILE_SUFFIX, delete=False) as temp_file:
             temp_file.write(audio_data)
             temp_file.flush()

@@ -8,7 +8,6 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from .config import TTSConfig
 from .constants import (
@@ -20,7 +19,6 @@ from .constants import (
     TEMP_FILE_SUFFIX,
     WAV_SUFFIX,
 )
-from .exceptions import EngineError, PlaybackError
 from .logger import Logger
 
 
@@ -59,7 +57,7 @@ class EdgeTTSBackend(TTSBackend):
         import edge_tts
 
         communicate = edge_tts.Communicate(text=text, voice=self.voice, rate=self.rate)
-        audio_chunks: List[bytes] = []
+        audio_chunks: list[bytes] = []
 
         async for chunk in communicate.stream():
             if chunk.get("type") == "audio":
@@ -76,7 +74,7 @@ class EdgeTTSBackend(TTSBackend):
 class GTTSBackend(TTSBackend):
     """Google Text-to-Speech backend."""
 
-    _available: Optional[bool] = None
+    _available: bool | None = None
 
     def is_available(self) -> bool:
         if GTTSBackend._available is not None:
@@ -111,10 +109,10 @@ class GTTSBackend(TTSBackend):
 class EspeakBackend(TTSBackend):
     """eSpeak-ng backend for basic TTS."""
 
-    _binary_cache: Optional[str] = None
+    _binary_cache: str | None = None
 
     @classmethod
-    def _find_binary(cls) -> Optional[str]:
+    def _find_binary(cls) -> str | None:
         if cls._binary_cache is not None:
             return cls._binary_cache if cls._binary_cache else None
 
@@ -156,10 +154,10 @@ class TTSEngine:
 
     def __init__(self, config: TTSConfig) -> None:
         self.config = config
-        self._backends: Optional[List[TTSBackend]] = None
+        self._backends: list[TTSBackend] | None = None
 
     @property
-    def backends(self) -> List[TTSBackend]:
+    def backends(self) -> list[TTSBackend]:
         if self._backends is None:
             self._backends = []
             for backend_class in self.BACKEND_CLASSES:
@@ -168,7 +166,7 @@ class TTSEngine:
                     self._backends.append(backend)
         return self._backends
 
-    def generate(self, text: str) -> Optional[bytes]:
+    def generate(self, text: str) -> bytes | None:
         if not text or not text.strip():
             return None
 
@@ -200,7 +198,7 @@ class TTSEngine:
         return None
 
     @staticmethod
-    def list_available_engines() -> Dict[str, bool]:
+    def list_available_engines() -> dict[str, bool]:
         edge_available = EdgeTTSBackend(TTSConfig()).is_available()
         return {
             "edge": edge_available,

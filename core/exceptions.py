@@ -6,7 +6,7 @@ This module defines a structured exception system that provides:
 - Better debugging information
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
 class TTSError(Exception):
@@ -17,7 +17,7 @@ class TTSError(Exception):
         details: Optional additional context for debugging.
     """
 
-    def __init__(self, message: str, details: Optional[Any] = None) -> None:
+    def __init__(self, message: str, details: Any | None = None) -> None:
         """Initialize TTS error.
 
         Args:

@@ -29,7 +29,7 @@ def test_should_skip_initial_section_for_short_initial_chunk() -> None:
         is_front=False,
         word_count=80,
         found_chapter=False,
-        skip_count=0,
+        text_preview="Some short intro text without chapter marker",
     )
 
 
@@ -39,7 +39,7 @@ def test_should_not_skip_after_chapter_found() -> None:
         is_front=True,
         word_count=50,
         found_chapter=True,
-        skip_count=2,
+        text_preview="Chapter 1 content starts here",
     )
 
 

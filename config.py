@@ -1,18 +1,17 @@
 """Configuration management for TTS application."""
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
-
 
 # Configuration file locations
 CONFIG_DIR = Path.home() / ".config" / "tts"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Default configuration values
-DEFAULTS = {
+DEFAULTS: dict[str, Any] = {
     "language": "en-us",
     "speed": "normal",
     "cache_enabled": True,
@@ -35,7 +34,7 @@ class TTSAppConfig:
     verbose: bool = DEFAULTS["verbose"]
     notifications: bool = DEFAULTS["notifications"]
     progress: bool = DEFAULTS["progress"]
-    default_engine: Optional[str] = DEFAULTS["default_engine"]
+    default_engine: str | None = DEFAULTS["default_engine"]
 
     # Runtime-only settings (not saved to file)
     _source: str = field(default="defaults", repr=False)
@@ -47,7 +46,7 @@ class TTSAppConfig:
             return cls(_source="defaults")
 
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE) as f:
                 data = yaml.safe_load(f) or {}
 
             config = cls(_source="file")
@@ -78,7 +77,7 @@ class TTSAppConfig:
         except (OSError, yaml.YAMLError):
             return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
         return {k: v for k, v in asdict(self).items() if not k.startswith("_")}
 

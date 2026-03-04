@@ -23,7 +23,7 @@ def chunk_text(text: str, size: int = CHUNK_SIZE) -> list[str]:
     cleaned = text.strip()
     if not cleaned:
         return []
-    
+
     # If size is small (e.g., 1-200), we treat it as "sentence mode"
     sentences = [item.strip() for item in _RE_SENTENCE_SPLIT.split(cleaned) if item.strip()]
     if not sentences:

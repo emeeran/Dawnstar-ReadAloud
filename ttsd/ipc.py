@@ -10,7 +10,7 @@ import json
 import os
 import socket
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class UnixSocketServer:
@@ -37,9 +37,9 @@ class UnixSocketServer:
         """
         self.daemon = daemon
         self.socket_path = Path(self.SOCKET_PATH)
-        self.server: Optional[asyncio.AbstractServer] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._shutdown_event: Optional[asyncio.Event] = None
+        self.server: asyncio.AbstractServer | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._shutdown_event: asyncio.Event | None = None
         self._running = False
 
     def start(self) -> None:
@@ -115,7 +115,7 @@ class UnixSocketServer:
             writer.close()
             await writer.wait_closed()
 
-    def _process_command(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_command(self, request: dict[str, Any]) -> dict[str, Any]:
         """Process a command and return response."""
         cmd = request.get("cmd", "").lower()
 
@@ -200,10 +200,10 @@ class IPCClient:
     SOCKET_PATH = UnixSocketServer.SOCKET_PATH
     TIMEOUT = 5.0
 
-    def __init__(self, socket_path: Optional[str] = None):
+    def __init__(self, socket_path: str | None = None):
         self.socket_path = socket_path or self.SOCKET_PATH
 
-    def _send_command(self, command: Dict[str, Any]) -> Dict[str, Any]:
+    def _send_command(self, command: dict[str, Any]) -> dict[str, Any]:
         """Send a command to the daemon and return response."""
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(self.TIMEOUT)
@@ -226,33 +226,33 @@ class IPCClient:
         finally:
             sock.close()
 
-    def speak(self, text: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def speak(self, text: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Queue text for speaking."""
         return self._send_command(
             {"cmd": "speak", "text": text, "options": options or {}}
         )
 
-    def speak_selection(self, options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def speak_selection(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Speak clipboard content."""
         return self._send_command({"cmd": "speak-selection", "options": options or {}})
 
-    def stop(self) -> Dict[str, Any]:
+    def stop(self) -> dict[str, Any]:
         """Stop playback and clear queue."""
         return self._send_command({"cmd": "stop"})
 
-    def pause(self) -> Dict[str, Any]:
+    def pause(self) -> dict[str, Any]:
         """Pause playback."""
         return self._send_command({"cmd": "pause"})
 
-    def resume(self) -> Dict[str, Any]:
+    def resume(self) -> dict[str, Any]:
         """Resume playback."""
         return self._send_command({"cmd": "resume"})
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Get daemon status."""
         return self._send_command({"cmd": "status"})
 
-    def get_voices(self) -> Dict[str, Any]:
+    def get_voices(self) -> dict[str, Any]:
         """Get available voices."""
         return self._send_command({"cmd": "get-voices"})
 
@@ -261,6 +261,6 @@ class IPCClient:
         result = self._send_command({"cmd": "status"})
         return result.get("status") == "ok"
 
-    def shutdown(self) -> Dict[str, Any]:
+    def shutdown(self) -> dict[str, Any]:
         """Shutdown the daemon."""
         return self._send_command({"cmd": "shutdown"})

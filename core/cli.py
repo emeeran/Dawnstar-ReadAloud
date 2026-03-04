@@ -5,25 +5,22 @@ argparse CLI for the TTS application.
 """
 
 import argparse
-import os
-import subprocess
-import sys
-from enum import Enum
-from typing import List, Optional
+from enum import StrEnum
 
 from config import TTSAppConfig, generate_sample_config
 
-from .constants import ANSI_CLEAR_LINE, ANSI_GREY_BG, ANSI_RESET, CACHE_DIR
 from .config import TTSConfig
+from .constants import ANSI_GREY_BG, ANSI_RESET, CACHE_DIR
 from .engine import TTSEngine
+from .exceptions import ExtractionError
 from .extractor import ContentExtractor
 from .logger import Logger
-from .player import AudioPlayer
 from .platform import get_clipboard_text
+from .player import AudioPlayer
 from .runtime import CacheManager, NotificationManager
 
 
-class SpeedChoice(str, Enum):
+class SpeedChoice(StrEnum):
     """Speech speed options."""
 
     SLOW = "slow"
@@ -248,6 +245,8 @@ Examples:
         except ExtractionError as e:
             Logger.error(f"Text processing error: {e}")
             return False
+
+        for chunk in chunks:
             if self.show_progress:
                 print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
             audio = tts.generate(chunk)
@@ -327,7 +326,7 @@ Examples:
         """
         try:
             text = ContentExtractor.from_source(" ".join(self.args.source), self.tts_config)
-        except (ExtractionError, e:
+        except ExtractionError as e:
             Logger.error(f"Content extraction error: {e}")
             return 1
         if not text:
@@ -346,7 +345,7 @@ Examples:
             NotificationManager.notify("TTS", f"Speaking {len(chunks)} segments...", timeout=2000)
 
         tts = TTSEngine(self.tts_config)
-        for index, chunk in enumerate(chunks, 1):
+        for _index, chunk in enumerate(chunks, 1):
             # Write current sentence to file for cursor tracking
             self._write_current_sentence(chunk)
 
@@ -355,11 +354,10 @@ Examples:
                 print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
 
             audio = tts.generate(chunk)
-            if audio:
-                if not AudioPlayer.play(audio, self.tts_config):
-                    Logger.error("Playback failed")
-                    NotificationManager.notify("TTS", "Playback failed")
-                    return 1
+            if audio and not AudioPlayer.play(audio, self.tts_config):
+                Logger.error("Playback failed")
+                NotificationManager.notify("TTS", "Playback failed")
+                return 1
 
         if len(chunks) > 1:
             NotificationManager.notify("TTS", "Finished speaking", timeout=1500)

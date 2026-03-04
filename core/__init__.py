@@ -1,30 +1,30 @@
 """Core TTS components."""
 
-from .constants import CACHE_DIR, LANG_CONFIG
 from .config import TTSConfig
+from .constants import CACHE_DIR, LANG_CONFIG
 from .engine import TTSEngine
 from .exceptions import (
-    TTSError,
-    ConfigurationError,
-    ExtractionError,
-    EngineError,
-    PlaybackError,
-    IPCError,
     CacheError,
+    ConfigurationError,
+    EngineError,
+    ExtractionError,
+    IPCError,
+    PlaybackError,
     SecurityError,
+    TTSError,
 )
 from .extractor import ContentExtractor
 from .logger import Logger
-from .player import AudioPlayer
 from .platform import (
-    DisplayServer,
     DesktopEnvironment,
-    detect_os,
-    detect_display_server,
-    detect_desktop_environment,
-    get_clipboard_text,
+    DisplayServer,
     detect_available_engines,
+    detect_desktop_environment,
+    detect_display_server,
+    detect_os,
+    get_clipboard_text,
 )
+from .player import AudioPlayer
 from .runtime import CacheManager, NotificationManager
 
 __all__ = [
