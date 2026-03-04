@@ -1,0 +1,12 @@
+dawnstar-readaloud (1.1.0-1) unstable; urgency=medium
+
+  * Initial release
+  * Multiple TTS engines: Edge TTS (neural voices), gTTS, eSpeak
+  * Multi-language support: US English, UK English, Tamil
+  * Smart caching for faster repeated playback
+  * Global keyboard shortcuts for reading selected text
+  * Document processing: skips front matter in EPUBs/PDFs
+  * Optional daemon mode for low-latency speech synthesis
+  * Desktop notifications and progress indicators
+
+ -- Dawnstar ReadAloud Contributors <noreply@example.com>  Tue, 04 Mar 2025 19:50:00 +0000

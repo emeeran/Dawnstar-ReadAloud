@@ -1,0 +1,70 @@
+.TH TTSC 1 "March 2025" "Dawnstar ReadAloud 1.1.0" "User Commands"
+.SH NAME
+ttsc \- TTS daemon client for low-latency speech synthesis
+.SH SYNOPSIS
+.B ttsc
+\fICOMMAND\fR [\fIOPTIONS\fR] [\fIARGS\fR]
+.SH DESCRIPTION
+.B ttsc
+is a command-line client for the TTS daemon (ttsd). It provides instant
+speech synthesis with no startup delay by communicating with a background
+daemon process.
+.SH COMMANDS
+.TP
+.B speak \fITEXT\fR
+Speak the provided text immediately
+.TP
+.B speak\-selection
+Speak the current clipboard/primary selection
+.TP
+.B stop
+Stop current playback and clear queue
+.TP
+.B pause
+Pause current playback
+.TP
+.B resume
+Resume paused playback
+.TP
+.B status
+Show daemon status (state, queue size, current job)
+.TP
+.B voices
+List available voices/languages
+.TP
+.B shutdown
+Shutdown the daemon
+.SH OPTIONS
+.TP
+\fB\-\-socket\fR=\fIPATH\fR
+Path to daemon socket (default: $XDG_RUNTIME_DIR/tts-daemon.sock)
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Enable verbose output
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show help message
+.SH EXAMPLES
+.TP
+Speak text:
+ttsc speak "Hello world"
+.TP
+Speak clipboard content:
+ttsc speak-selection
+.TP
+Check daemon status:
+ttsc status
+.TP
+Stop playback:
+ttsc stop
+.SH FILES
+.TP
+.I $XDG_RUNTIME_DIR/tts-daemon.sock
+Unix socket for daemon communication
+.SH SEE ALSO
+.BR tts (1),
+.BR ttsd (1)
+.SH AUTHOR
+Dawnstar ReadAloud Contributors
+.SH LICENSE
+MIT License
