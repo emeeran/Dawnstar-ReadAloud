@@ -60,6 +60,60 @@ def get_browser_url(wid: str) -> str | None:
     return None
 
 
+def get_window_pid(wid: str) -> int | None:
+    """Get PID of the process that owns the window."""
+    output = _run(["xdotool", "getwindowpid", wid])
+    if output:
+        try:
+            return int(output.strip())
+        except ValueError:
+            pass
+    return None
+
+
+# Extensions we consider as documents
+_DOC_EXTENSIONS = frozenset(
+    {".pdf", ".epub", ".txt", ".md", ".markdown", ".html", ".htm", ".rst", ".org", ".djvu"}
+)
+
+
+def get_document_from_pid(pid: int) -> str | None:
+    """Get document file path from process info (cmdline + open file descriptors)."""
+    # 1. Check command-line arguments — "okular /path/to/file.pdf"
+    try:
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
+        for arg in cmdline.split(b"\x00"):
+            try:
+                arg_str = arg.decode("utf-8", errors="ignore")
+            except UnicodeDecodeError:
+                continue
+            if not arg_str:
+                continue
+            p = Path(arg_str)
+            if p.suffix.lower() in _DOC_EXTENSIONS and p.is_file():
+                return str(p.resolve())
+    except OSError:
+        pass
+
+    # 2. Check open file descriptors — viewer keeps the fd open
+    fd_dir = Path(f"/proc/{pid}/fd")
+    try:
+        for fd_path in fd_dir.iterdir():
+            try:
+                target = os.readlink(str(fd_path))
+                if " (deleted)" in target:
+                    continue
+                p = Path(target)
+                if p.suffix.lower() in _DOC_EXTENSIONS and p.is_file():
+                    return str(p.resolve())
+            except (OSError, ValueError):
+                continue
+    except OSError:
+        pass
+
+    return None
+
+
 def get_document_path(title: str) -> str | None:
     """Extract file path from document viewer / editor window title."""
     # Real patterns from actual apps:
@@ -162,12 +216,16 @@ def _search_for_file(filename: str) -> str | None:
         except OSError:
             pass
 
-    # 2. Common directories
+    # 2. Common directories (including common subdirectories)
     search_dirs = [
         Path.home() / "Documents",
         Path.home() / "Downloads",
+        Path.home() / "Downloads" / "eBooks",
         Path.home() / "Desktop",
         Path.home() / "Sync",
+        Path.home() / "Books",
+        Path.home() / "Papers",
+        Path.home() / "Library",
         Path("/tmp"),
     ]
     for d in search_dirs:
@@ -223,6 +281,12 @@ def main() -> None:
         path = get_editor_path(wtitle)
         if path:
             source = find_file(path)
+
+    # 4. Fallback: check process info (cmdline + open file descriptors)
+    if not source:
+        pid = get_window_pid(wid)
+        if pid:
+            source = get_document_from_pid(pid)
 
     if source:
         print(source)

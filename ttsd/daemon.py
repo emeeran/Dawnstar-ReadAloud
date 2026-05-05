@@ -7,7 +7,6 @@ speech synthesis.
 """
 
 import contextlib
-import os
 import queue
 import signal
 import subprocess

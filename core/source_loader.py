@@ -35,7 +35,7 @@ def from_source(source: str, config: TTSConfig) -> str | None:
     # Resolve and validate file path
     try:
         resolved_path = Path(expanded_source).resolve()
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError):
         # Not a valid path — treat as direct text input
         return source
 
@@ -65,7 +65,7 @@ def from_source(source: str, config: TTSConfig) -> str | None:
             )
             return None
         return resolved_path.read_text(encoding="utf-8", errors="ignore")
-    except OSError as error:
+    except OSError:
         # File doesn't exist or unreadable
         file_extensions = ('.txt', '.pdf', '.epub', '.md', '.html', '.htm')
         if source.lower().endswith(file_extensions) or source.startswith(('/', './', '../')):

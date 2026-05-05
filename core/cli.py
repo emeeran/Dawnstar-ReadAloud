@@ -14,11 +14,10 @@ from app_config import TTSAppConfig, generate_sample_config
 from .config import TTSConfig
 from .constants import ANSI_GREY_BG, ANSI_RESET, CACHE_DIR
 from .engine import TTSEngine
-from .platform import supports_ansi_colors
 from .exceptions import ExtractionError
 from .extractor import ContentExtractor
 from .logger import Logger
-from .platform import get_clipboard_text
+from .platform import get_clipboard_text, supports_ansi_colors
 from .player import AudioPlayer
 from .runtime import CacheManager, NotificationManager
 
@@ -303,8 +302,9 @@ Examples:
             Exit code (0 on success, 1 if edge-tts not installed).
         """
         try:
-            import edge_tts
             import asyncio
+
+            import edge_tts
 
             voices = asyncio.run(edge_tts.list_voices())
             supported_langs = {"en-US", "en-GB", "ta-IN"}

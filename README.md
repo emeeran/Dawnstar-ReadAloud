@@ -4,13 +4,14 @@ A lightweight, neural-network-based Text-to-Speech application for Linux with gl
 
 ## Features
 
-- **Neural Voices** - High-quality Microsoft Azure neural voices via Edge TTS
-- **Smart Caching** - Instant replay of previously spoken text with LRU eviction
-- **System Integration** - Global keyboard shortcuts work in any application
-- **Multiple Input Sources** - Files, PDFs, EPUBs, URLs, clipboard, stdin
-- **Cross-Platform Clipboard** - Works on both X11 and Wayland
-- **Multi-Language** - US English, UK English, and Tamil
-- **Modular Architecture** - Clean separation of concerns with pluggable TTS backends
+- **Neural Voices** — High-quality Microsoft Azure neural voices via Edge TTS
+- **Smart Caching** — Instant replay of previously spoken text with LRU eviction
+- **Global Shortcuts** — Works in any application: cursor, document, selection, stop
+- **Source Detection** — Automatically detects the active window's file or URL
+- **Multiple Input Sources** — Files, PDFs, EPUBs, URLs, clipboard, stdin
+- **Smart Content Extraction** — Skips ads/front matter, reads main content
+- **Multi-Language** — US English, UK English, and Tamil
+- **Daemon Mode** — Low-latency background service for frequent use
 
 ## Quick Start
 
@@ -22,10 +23,10 @@ sudo apt install mpg123 xclip poppler-utils
 python3 -m venv .venv
 ./.venv/bin/pip install -e .
 
-# Run the application
+# Speak text
 ./tts "Hello, world!"
 
-# Set up keyboard shortcuts
+# Set up global keyboard shortcuts
 python3 configure.py
 ```
 
@@ -33,9 +34,10 @@ python3 configure.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+S` | Speak from cursor (no selection required) |
-| `Ctrl+Alt+C` | Speak selected/highlighted text |
-| `Ctrl+Alt+Q` | Stop speaking |
+| `Shift+Alt+F` | Speak from cursor position |
+| `Shift+Alt+D` | Read active document (PDF, EPUB, URL) |
+| `Shift+Alt+C` | Speak selected/highlighted text |
+| `Shift+Alt+Q` | Stop speaking |
 
 ## Basic Usage
 
@@ -44,15 +46,15 @@ python3 configure.py
 ./tts document.txt              # Read file
 ./tts book.epub                 # Read EPUB (skips front matter)
 ./tts report.pdf                # Read PDF (skips preface/TOC)
-./tts https://example.com       # Read web article (skips ads/nav)
+./tts https://example.com       # Read web article (skips ads)
 ./tts -l ta -s slow "வணக்கம்"   # Tamil at slow speed
 cat notes.txt | ./tts -         # Read from stdin
 ```
 
 ## Documentation
 
-- **[USER_MANUAL.md](USER_MANUAL.md)** - Complete user manual with detailed usage, troubleshooting, and configuration
-- **[CLAUDE.md](CLAUDE.md)** - Developer documentation and architecture
+- **[USER_MANUAL.md](USER_MANUAL.md)** — Complete user manual
+- **[CLAUDE.md](CLAUDE.md)** — Developer documentation and architecture
 
 ## Requirements
 
@@ -63,4 +65,4 @@ cat notes.txt | ./tts -         # Read from stdin
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT License — See [LICENSE](LICENSE) for details.

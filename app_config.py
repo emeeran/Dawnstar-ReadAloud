@@ -234,10 +234,9 @@ class TTSAppConfig:
                     return False, f"Must be between {CACHE_SIZE_MIN_MB} and {CACHE_SIZE_MAX_MB} MB"
             elif key == "default_engine":
                 if value not in VALID_ENGINES:
-                    return False, f"Must be one of: edge, gtts, espeak, or null"
-            elif key in ("cache_enabled", "verbose", "notifications", "progress"):
-                if not isinstance(value, bool):
-                    return False, "Must be a boolean value"
+                    return False, "Must be one of: edge, gtts, espeak, or null"
+            elif key in ("cache_enabled", "verbose", "notifications", "progress") and not isinstance(value, bool):
+                return False, "Must be a boolean value"
 
             return True, ""
         except Exception as e:

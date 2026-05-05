@@ -7,23 +7,21 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
+CMD_CURSOR="$TTS_ROOT/speak_from_cursor.sh"
+CMD_DOC="$TTS_ROOT/speak_active_doc.sh"
 CMD_SELECTION="$TTS_ROOT/speak_selection.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up XFCE keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_SELECTION" "$CMD_STOP"
+chmod +x "$CMD_CURSOR" "$CMD_DOC" "$CMD_SELECTION" "$CMD_STOP"
 
 # Check if xfconf-query is available
 if ! command -v xfconf-query &> /dev/null; then
     echo "Error: xfconf-query not found. Is XFCE installed?"
     exit 1
 fi
-
-# XFCE stores keyboard shortcuts in xfce4-keyboard-shortcuts channel
-# We need to find the next available custom shortcut slot
 
 CHANNEL="xfce4-keyboard-shortcuts"
 
@@ -37,7 +35,6 @@ LAST_CUSTOM=$(get_existing_shortcuts)
 if [ -z "$LAST_CUSTOM" ]; then
     NEXT_SLOT=0
 else
-    # Extract number from last custom (e.g., /commands/custom/12 -> 12)
     NEXT_SLOT=$(echo "$LAST_CUSTOM" | grep -o '[0-9]*$')
     NEXT_SLOT=$((NEXT_SLOT + 1))
 fi
@@ -54,39 +51,17 @@ add_shortcut() {
     # Set the command
     xfconf-query -c "$CHANNEL" -p "/commands/custom/$slot" -t string -s "$cmd" --create
 
-    # Set the shortcut (XFCE format: <Shift><Super>s)
-    # Convert to XFCE format
-    local xfce_shortcut="${shortcut//Shift/<Shift>}"
-    xfce_shortcut="${xfce_shortcut//Meta/<Super>}"
-    xfce_shortcut="${xfce_shortcut//Ctrl/<Primary>}"
-    xfce_shortcut="${xfce_shortcut//Alt/<Alt>}"
-
-    echo "  Added '$name' at slot $slot ($xfce_shortcut)"
+    echo "  Added '$name' at slot $slot ($shortcut)"
 }
 
-# Add Speak From Cursor shortcut (Ctrl+Alt+S)
-SPEAK_SLOT=$NEXT_SLOT
-add_shortcut "$SPEAK_SLOT" "Speak From Cursor" "$CMD_SPEAK" "Ctrl+Alt+s"
-
-# Add Speak Selected shortcut (Ctrl+Alt+C)
-SELECTION_SLOT=$((NEXT_SLOT + 1))
-add_shortcut "$SELECTION_SLOT" "Speak Selected" "$CMD_SELECTION" "Ctrl+Alt+c"
-
-# Add Stop Speaking shortcut (Ctrl+Alt+Q)
-STOP_SLOT=$((NEXT_SLOT + 2))
-add_shortcut "$STOP_SLOT" "Stop Speaking" "$CMD_STOP" "Ctrl+Alt+q"
-
-# Note: In XFCE, you may also need to set the actual key binding
-# This is typically done through the keyboard settings GUI
-# The commands above set up the command, but key binding may need manual setup
+# Add all 4 shortcuts
+add_shortcut "$NEXT_SLOT" "Speak From Cursor" "$CMD_CURSOR" "Shift+Alt+f"
+add_shortcut "$((NEXT_SLOT + 1))" "Read Active Document" "$CMD_DOC" "Shift+Alt+d"
+add_shortcut "$((NEXT_SLOT + 2))" "Speak Selected" "$CMD_SELECTION" "Shift+Alt+c"
+add_shortcut "$((NEXT_SLOT + 3))" "Stop Speaking" "$CMD_STOP" "Shift+Alt+q"
 
 echo ""
 echo "XFCE shortcuts configured!"
 echo ""
 echo "Note: You may need to manually bind the keys in:"
 echo "  Settings > Keyboard > Application Shortcuts"
-echo ""
-echo "Or run these commands to bind the actual keys:"
-echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$SPEAK_SLOT' -t string -s '$CMD_SPEAK'"
-echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$SELECTION_SLOT' -t string -s '$CMD_SELECTION'"
-echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$STOP_SLOT' -t string -s '$CMD_STOP'"

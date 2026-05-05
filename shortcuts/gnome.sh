@@ -7,7 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="/bin/bash -lc '$TTS_ROOT/speak_from_cursor.sh'"
+CMD_CURSOR="/bin/bash -lc '$TTS_ROOT/speak_from_cursor.sh'"
+CMD_DOC="/bin/bash -lc '$TTS_ROOT/speak_active_doc.sh'"
 CMD_SELECTION="/bin/bash -lc '$TTS_ROOT/speak_selection.sh'"
 CMD_STOP="/bin/bash -lc '$TTS_ROOT/stop_speaking.sh'"
 
@@ -32,25 +33,27 @@ done
 
 # 2. Our target shortcuts
 declare -A TARGETS
-TARGETS["Speak From Cursor"]="$CMD_SPEAK|<Control><Alt>s"
-TARGETS["Speak Selected"]="$CMD_SELECTION|<Control><Alt>c"
-TARGETS["Stop Speaking"]="$CMD_STOP|<Control><Alt>q"
+TARGETS["TTS Speak From Cursor"]="$CMD_CURSOR|<Shift><Alt>f"
+TARGETS["TTS Read Active Document"]="$CMD_DOC|<Shift><Alt>d"
+TARGETS["TTS Speak Selected"]="$CMD_SELECTION|<Shift><Alt>c"
+TARGETS["TTS Stop Speaking"]="$CMD_STOP|<Shift><Alt>q"
 
 # 3. Update or Add
 for NAME in "${!TARGETS[@]}"; do
     IFS='|' read -r CMD BINDING <<< "${TARGETS[$NAME]}"
     FOUND_PATH=""
-    
-    # Search in existing
+
+    # Search in existing — match by exact name, TTS-prefixed name, or command path
     for p in "${!ALL_PATHS[@]}"; do
         EXISTING_NAME=$(gsettings get "${SCHEMA_BINDING}:${p}" name | sed "s/^'//;s/'$//")
         EXISTING_CMD=$(gsettings get "${SCHEMA_BINDING}:${p}" command | sed "s/^'//;s/'$//")
-        if [[ "$EXISTING_NAME" == "$NAME" || "$EXISTING_CMD" == "$CMD" ]]; then
+        # Match if name is the same, or has TTS prefix, or command contains the same script
+        if [[ "$EXISTING_NAME" == "$NAME" || "$EXISTING_NAME" == "TTS $NAME" || "$EXISTING_CMD" == *"$CMD"* ]]; then
             FOUND_PATH="$p"
             break
         fi
     done
-    
+
     if [[ -n "$FOUND_PATH" ]]; then
         echo "  Updating '$NAME' at $FOUND_PATH"
     else
@@ -59,7 +62,7 @@ for NAME in "${!TARGETS[@]}"; do
         ALL_PATHS["$FOUND_PATH"]=1
         echo "  Creating '$NAME' at $FOUND_PATH"
     fi
-    
+
     gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" name "$NAME"
     gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" command "$CMD"
     gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" binding "$BINDING"

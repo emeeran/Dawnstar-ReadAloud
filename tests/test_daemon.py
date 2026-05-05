@@ -9,8 +9,6 @@ This test suite verifies:
 
 import os
 import sys
-import tempfile
-import threading
 import time
 from pathlib import Path
 
@@ -18,8 +16,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from ttsd.daemon import TTSDaemon, DaemonState, Command, Job
-from ttsd.ipc import IPCClient, UnixSocketServer, MAX_IPC_TEXT_LENGTH
+from ttsd.daemon import Command, DaemonState, Job, TTSDaemon
+from ttsd.ipc import MAX_IPC_TEXT_LENGTH, IPCClient, UnixSocketServer
 
 
 class TestTTSDaemon:
@@ -97,11 +95,11 @@ class TestTTSDaemon:
             time.sleep(0.5)
 
             # Pause (may not work if job completed already)
-            result = daemon.pause()
+            daemon.pause()
             # Result depends on timing - just verify no crash
 
             # Resume
-            result = daemon.resume()
+            daemon.resume()
             # Result depends on state
 
         finally:

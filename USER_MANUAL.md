@@ -1,6 +1,6 @@
-# TTS Application - Complete User Manual
+# Dawnstar ReadAloud — User Manual
 
-A comprehensive guide to the Enhanced Text-to-Speech application for Linux.
+Complete guide to the Dawnstar ReadAloud text-to-speech application for Linux.
 
 ---
 
@@ -9,17 +9,19 @@ A comprehensive guide to the Enhanced Text-to-Speech application for Linux.
 1. [Introduction](#1-introduction)
 2. [Installation](#2-installation)
 3. [Quick Start](#3-quick-start)
-4. [Basic Usage](#4-basic-usage)
-5. [Command Reference](#5-command-reference)
-6. [Configuration](#6-configuration)
-7. [Keyboard Shortcuts](#7-keyboard-shortcuts)
+4. [Keyboard Shortcuts](#4-keyboard-shortcuts)
+5. [Command-Line Usage](#5-command-line-usage)
+6. [Input Sources](#6-input-sources)
+7. [Content Extraction](#7-content-extraction)
 8. [Languages and Voices](#8-languages-and-voices)
-9. [Text Processing](#9-text-processing)
-10. [Caching System](#10-caching-system)
-11. [Advanced Usage](#11-advanced-usage)
-12. [Troubleshooting](#12-troubleshooting)
-13. [File Locations](#13-file-locations)
-14. [Uninstallation](#14-uninstallation)
+9. [Caching System](#9-caching-system)
+10. [Configuration](#10-configuration)
+11. [Daemon Mode](#11-daemon-mode)
+12. [Desktop Integration](#12-desktop-integration)
+13. [Advanced Usage](#13-advanced-usage)
+14. [Troubleshooting](#14-troubleshooting)
+15. [File Locations](#15-file-locations)
+16. [Uninstallation](#16-uninstallation)
 
 ---
 
@@ -27,51 +29,41 @@ A comprehensive guide to the Enhanced Text-to-Speech application for Linux.
 
 ### Overview
 
-The Enhanced TTS Application is a lightweight, neural-network-based text-to-speech system for Linux. It converts written text into natural-sounding speech using Microsoft Azure's neural voices via Edge TTS, with automatic fallback to Google TTS if needed.
+Dawnstar ReadAloud converts text into natural-sounding speech using Microsoft Azure neural voices. It runs as a command-line tool, a background daemon, or through global keyboard shortcuts that work in any application.
 
 ### Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **Neural Voices** | High-quality AI-generated speech via Edge TTS |
-| **Smart Caching** | Instant replay with LRU cache and size limits |
-| **Configuration File** | Persistent preferences in `~/.config/tts/config.yaml` |
-| **Multi-Language** | US English, UK English, and Tamil support |
-| **System Integration** | Global keyboard shortcuts for any application |
-| **Multiple Input Sources** | Files, PDFs, EPUBs, URLs, clipboard, stdin |
-| **Desktop Notifications** | Visual feedback for long texts |
-| **Progress Indication** | Chunk counter for multi-segment playback |
-| **Cross-Platform Clipboard** | Works on X11 and Wayland |
+| Neural voices | Microsoft Azure Edge TTS with automatic fallback to Google TTS and eSpeak |
+| Global shortcuts | Speak from cursor, read documents, speak selection, stop — from any app |
+| Source detection | Detects the focused window's file path or URL automatically |
+| Smart extraction | Skips ads and navigation in web pages, front matter in PDFs/EPUBs |
+| Smart caching | MD5-keyed LRU cache with configurable size limit |
+| Multi-language | US English, UK English, Tamil |
+| Multiple sources | Direct text, files, PDF, EPUB, URLs, clipboard, stdin |
+| Daemon mode | Background service for low-latency frequent use |
+| Desktop integration | Application menu entry, wrapper scripts, systemd service |
 
 ### System Requirements
 
-- **Operating System**: Linux (Ubuntu/Debian recommended)
-- **Python**: 3.12 or higher
-- **Audio**: Working audio output (speakers/headphones)
-- **Desktop**: GNOME, KDE, XFCE, Sway, or Hyprland (for keyboard shortcuts)
+| Requirement | Details |
+|-------------|---------|
+| Operating system | Linux (Ubuntu/Debian recommended) |
+| Python | 3.12 or higher |
+| Audio | Working audio output |
+| Desktop | GNOME, KDE, XFCE, Sway, or Hyprland (for keyboard shortcuts) |
 
 ---
 
 ## 2. Installation
 
-### Step 1: Install System Dependencies
+### System Dependencies
 
 ```bash
-# Ubuntu/Debian
 sudo apt update
-sudo apt install -y mpg123 xclip
-
-# Optional: For PDF support
-sudo apt install -y poppler-utils
-
-# Optional: For better web scraping
-sudo apt install -y lynx
-
-# Optional: For desktop notifications
-sudo apt install -y libnotify-bin
+sudo apt install -y mpg123 xclip poppler-utils libnotify-bin
 ```
-
-**Package Descriptions:**
 
 | Package | Purpose | Required |
 |---------|---------|----------|
@@ -79,70 +71,53 @@ sudo apt install -y libnotify-bin
 | `xclip` | Clipboard access (X11) | Yes* |
 | `wl-clipboard` | Clipboard access (Wayland) | Yes* |
 | `poppler-utils` | PDF text extraction | No |
-| `lynx` | Web content extraction | No |
 | `libnotify-bin` | Desktop notifications | No |
 
-*Either xclip (X11) or wl-clipboard (Wayland) is required for keyboard shortcuts.
+\* Either xclip (X11) or wl-clipboard (Wayland) is required for keyboard shortcuts.
 
-### Step 2: Create Virtual Environment
+### Python Setup
 
 ```bash
-cd /path/to/tts
+cd /path/to/Dawnstar-ReadAloud
+
+# Create virtual environment
 python3 -m venv .venv
-```
 
-### Step 3: Install Python Dependencies
-
-```bash
-# Install the package in editable mode
+# Install the package
 ./.venv/bin/pip install -e .
 
-# Or install with development dependencies (for contributors)
+# Or with development tools (for contributors)
 ./.venv/bin/pip install -e ".[dev]"
 ```
 
-**Python Packages:**
-
-| Package | Purpose |
-|---------|---------|
-| `edge-tts` | Microsoft Edge neural TTS engine |
-| `gtts` | Google TTS (fallback engine) |
-| `ebooklib` | EPUB ebook support |
-| `beautifulsoup4` | HTML parsing for EPUB extraction |
-| `pyyaml` | Configuration file parsing |
-| `pyperclip` | Cross-platform clipboard access |
-| `pypdf` | PDF text extraction |
-
-### Step 4: Verify Installation
+### Verify Installation
 
 ```bash
 ./tts --list-engines
 ```
 
 Expected output:
+
 ```
 Available TTS engines:
-  ✓ edge
-  ✓ gtts
-  ✗ espeak
+  edge: ok
+  gtts: ok
+  espeak: not available
 ```
 
-### Step 5: Configure System Integration (Optional)
+### System Integration
 
 ```bash
 python3 configure.py
 ```
 
-This installs:
-- Keyboard shortcuts (Ctrl+Alt+S, Ctrl+Alt+C, Ctrl+Alt+Q)
-- Desktop entry for application menu
-- Wrapper scripts in `~/.local/bin/`
+This installs keyboard shortcuts, desktop menu entry, wrapper scripts in `~/.local/bin/`, and an optional systemd user service.
 
 ---
 
 ## 3. Quick Start
 
-### Your First Speech
+### Speak Text Directly
 
 ```bash
 ./tts "Hello, world! Welcome to text-to-speech."
@@ -152,51 +127,263 @@ This installs:
 
 ```bash
 ./tts document.txt
+./tts book.epub
+./tts report.pdf
 ```
 
-### Read an E-book
+### Read from Cursor (Global Shortcut)
 
-```bash
-./tts mybook.epub
-```
+1. Place your text cursor in any text field or editor
+2. Press **Shift+Alt+F**
+3. The app reads from your cursor position to the end
 
-### Read from Cursor
+### Read Active Document (Global Shortcut)
 
-1. Place your text cursor (caret) in any text field or editor
-2. Press `Ctrl+Alt+S`
-3. Listen as the app reads from your cursor position to the end
+1. Open a PDF, EPUB, or web page in any viewer or browser
+2. Press **Shift+Alt+D**
+3. The app detects the source and reads from the beginning
 
-### Read Selected Text
+### Speak Selection (Global Shortcut)
 
 1. Highlight text in any application
-2. Press `Ctrl+Alt+C`
-3. Listen to the speech
+2. Press **Shift+Alt+C**
+3. The selected text is spoken
 
 ### Stop Speaking
 
-Press `Ctrl+Alt+Q` or `Ctrl+C` in the terminal.
+Press **Shift+Alt+Q** (global) or **Ctrl+C** (in terminal).
 
 ---
 
-## 4. Basic Usage
+## 4. Keyboard Shortcuts
 
-### Input Sources
+### Shortcuts Overview
 
-The application accepts multiple input types:
+| Shortcut | Action | Script |
+|----------|--------|--------|
+| `Shift+Alt+F` | Speak from cursor | `speak_from_cursor.sh` |
+| `Shift+Alt+D` | Read active document | `speak_active_doc.sh` |
+| `Shift+Alt+C` | Speak selection (clipboard) | `speak_selection.sh` |
+| `Shift+Alt+Q` | Stop speaking | `stop_speaking.sh` |
 
-| Source | Syntax | Example |
-|--------|--------|---------|
-| Direct text | `./tts "text"` | `./tts "Hello world"` |
-| Text file | `./tts path/to/file.txt` | `./tts notes.txt` |
-| PDF file | `./tts document.pdf` | `./tts report.pdf` |
-| EPUB file | `./tts book.epub` | `./tts novel.epub` |
-| URL | `./tts https://...` | `./tts https://example.com/article` |
-| Stdin | `echo "text" \| ./tts -` | `cat file.txt \| ./tts -` |
-| Clipboard | `./tts --get-clipboard` | Returns clipboard text |
+### Speak from Cursor (Shift+Alt+F)
+
+Reads text starting from your cursor position in the focused application.
+
+**How it works:**
+
+1. Tries AT-SPI accessibility APIs to extract text from the focused text container at the cursor position
+2. Falls back to primary selection (highlighted text) via xclip
+3. Speaks the extracted text through the TTS engine
+
+**Requirements:**
+
+- The application must support AT-SPI (most GTK and Qt apps do)
+- Or you can highlight text before pressing the shortcut
+
+**Supported applications:**
+
+- Text editors (GNOME Text Editor, gedit, Kate, VS Code, Typora)
+- Terminal emulators
+- Browser text fields
+- Document viewers (for highlighted text)
+- Most GTK/Qt applications
+
+### Read Active Document (Shift+Alt+D)
+
+Detects the document open in the focused window and reads it from the beginning.
+
+**How it works:**
+
+1. Identifies the focused window via xdotool
+2. Detects the application type (browser, viewer, editor)
+3. Extracts the source:
+   - **Browsers**: Simulates Ctrl+L, Ctrl+C to get the URL from the address bar
+   - **Document viewers** (Okular, Evince, etc.): Extracts filename from window title, resolves to full path via recently-used files and `/proc` inspection
+   - **Text editors**: Extracts file path from window title
+   - **PID fallback**: Checks process command-line arguments and open file descriptors
+4. Passes the source to `tts <source>` for full content extraction
+
+**Supported applications:**
+
+| Application | Detection Method |
+|-------------|-----------------|
+| Okular | Window title + PID file descriptors |
+| Evince / Atril | Window title + recently-used list |
+| Google Chrome | Address bar URL extraction |
+| Firefox | Address bar URL extraction |
+| Chromium | Address bar URL extraction |
+| GNOME Text Editor | Title path extraction |
+| Typora | Title path extraction |
+| Kate / gedit | Title path extraction |
+
+**For URLs:** The content is fetched and extracted with ad/navigation removal (see [Content Extraction](#7-content-extraction)).
+
+**For PDF/EPUB:** Front matter is automatically skipped (preface, TOC, copyright), starting from Chapter 1.
+
+### Speak Selection (Shift+Alt+C)
+
+Reads text from the clipboard or primary selection.
+
+**X11:**
+
+1. Prioritizes primary selection (text highlighted with mouse)
+2. Falls back to clipboard (Ctrl+C)
+3. Speaks the text
+
+**Wayland:**
+
+1. Reads from the clipboard (Ctrl+C)
+2. Speaks the text
+
+### Stop Speaking (Shift+Alt+Q)
+
+Immediately stops all TTS playback:
+
+1. Kills audio streams via PulseAudio/PipeWire
+2. Terminates TTS processes (including Docker containers)
+3. Cleans up temporary files
+
+### Installing Shortcuts
+
+```bash
+python3 configure.py
+```
+
+The script auto-detects your desktop environment and runs the appropriate setup:
+
+| Desktop Environment | Method |
+|---------------------|--------|
+| GNOME | gsettings custom keybindings |
+| KDE Plasma | kglobalshortcutsrc |
+| XFCE | xfconf-query |
+| Sway | Appends bindsym to config |
+| Hyprland | Appends bind to config |
+
+### Manual Shortcut Setup
+
+If automatic setup fails, configure manually:
+
+**GNOME:**
+
+1. Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts
+2. Click "Add Shortcut"
+3. Add each shortcut:
+
+| Name | Command | Key |
+|------|---------|-----|
+| Speak from Cursor | `/path/to/Dawnstar-ReadAloud/speak_from_cursor.sh` | Shift+Alt+F |
+| Read Active Document | `/path/to/Dawnstar-ReadAloud/speak_active_doc.sh` | Shift+Alt+D |
+| Speak Selection | `/path/to/Dawnstar-ReadAloud/speak_selection.sh` | Shift+Alt+C |
+| Stop Speaking | `/path/to/Dawnstar-ReadAloud/stop_speaking.sh` | Shift+Alt+Q |
+
+Replace `/path/to/Dawnstar-ReadAloud` with the actual installation path.
+
+**Sway — manual config:**
+
+```
+bindsym Shift+Alt+f exec /path/to/speak_from_cursor.sh
+bindsym Shift+Alt+d exec /path/to/speak_active_doc.sh
+bindsym Shift+Alt+c exec /path/to/speak_selection.sh
+bindsym Shift+Alt+q exec /path/to/stop_speaking.sh
+```
+
+**Hyprland — manual config:**
+
+```
+bind = SHIFT ALT, f, exec, /path/to/speak_from_cursor.sh
+bind = SHIFT ALT, d, exec, /path/to/speak_active_doc.sh
+bind = SHIFT ALT, c, exec, /path/to/speak_selection.sh
+bind = SHIFT ALT, q, exec, /path/to/stop_speaking.sh
+```
+
+---
+
+## 5. Command-Line Usage
+
+### Syntax
+
+```
+./tts [SOURCE...] [OPTIONS]
+```
+
+### Positional Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `SOURCE` | Text to speak, file path, URL, or `-` for stdin. Multiple arguments are combined. If omitted, enters interactive mode. |
+
+### Speech Options
+
+| Short | Long | Values | Default | Description |
+|-------|------|--------|---------|-------------|
+| `-l` | `--lang` | `en-us`, `en-uk`, `ta` | `en-us` | Language and voice |
+| `-s` | `--speed` | `slow`, `normal`, `fast` | `normal` | Speech rate |
+| `-v` | `--verbose` | — | — | Show detailed progress |
+
+### Cache Options
+
+| Long | Description |
+|------|-------------|
+| `--no-cache` | Bypass cache, regenerate audio |
+| `--clear-cache` | Delete all cached audio files |
+| `--cache-stats` | Show cache size and file count |
+
+### Configuration Options
+
+| Long | Description |
+|------|-------------|
+| `--show-config` | Display current configuration |
+| `--generate-config` | Generate sample config file to stdout |
+| `--config-path` | Show configuration file path |
+| `--reset-config` | Reset configuration to defaults |
+
+### System Options
+
+| Long | Description |
+|------|-------------|
+| `--list-engines` | Show available TTS engines |
+| `--list-voices` | List Edge TTS voices |
+| `--get-clipboard` | Print clipboard text and exit |
+| `--sentence-file FILE` | Write current sentence to file (for progress notifications) |
+
+### Examples
+
+```bash
+# Direct text
+./tts "Hello world"
+
+# File with verbose output
+./tts document.txt -v
+
+# British English, slow speed (good for proofreading)
+./tts proofread.txt -l en-uk -s slow
+
+# Read an e-book (skips front matter)
+./tts mybook.epub
+
+# Read a web article (extracts main content)
+./tts https://en.wikipedia.org/wiki/Linux
+
+# Read from stdin
+cat notes.txt | ./tts -
+
+# Force fresh generation (skip cache)
+./tts "Test" --no-cache
+
+# Check cache statistics
+./tts --cache-stats
+
+# Show current configuration
+./tts --show-config
+
+# Generate a sample config file
+./tts --generate-config > ~/.config/tts/config.yaml
+```
 
 ### Interactive Mode
 
-Run without arguments for interactive input:
+Run without arguments for a REPL:
 
 ```bash
 ./tts
@@ -209,128 +396,192 @@ Interactive mode - 'quit' to exit
 > quit
 ```
 
-### Speed Control
+---
+
+## 6. Input Sources
+
+### Supported Sources
+
+| Source | Syntax | Notes |
+|--------|--------|-------|
+| Direct text | `./tts "text"` | Multiple arguments are joined |
+| Text file | `./tts file.txt` | Plain text or Markdown |
+| PDF file | `./tts document.pdf` | Skips preface/TOC |
+| EPUB file | `./tts book.epub` | Skips front matter |
+| URL | `./tts https://...` | Extracts main article content |
+| Stdin | `cat file | ./tts -` | Pipe content |
+| Clipboard | `./tts --get-clipboard` | Prints clipboard text |
+
+### File Format Support
+
+| Format | Extension | Dependencies | Features |
+|--------|-----------|--------------|----------|
+| Plain text | `.txt` | None | Direct reading |
+| Markdown | `.md` | None | Headers and links cleaned |
+| PDF | `.pdf` | `pypdf` | Smart skip to Chapter 1 |
+| EPUB | `.epub` | `ebooklib`, `beautifulsoup4` | Smart skip past front matter |
+| Web pages | URL | `beautifulsoup4` | Ad-free article extraction |
+
+### Multiple Sources
+
+Multiple positional arguments are combined into a single text:
 
 ```bash
-# Slow (good for proofreading)
-./tts "Reading slowly" --speed slow
-
-# Normal (default)
-./tts "Normal speed" --speed normal
-
-# Fast (good for skimming)
-./tts "Reading quickly" --speed fast
-```
-
-### Language Selection
-
-```bash
-# US English (default)
-./tts "Hello" --lang en-us
-
-# British English
-./tts "Hello" --lang en-uk
-
-# Tamil
-./tts "Hello" --lang ta
-```
-
-### Progress Indication
-
-For longer texts, progress is shown automatically:
-
-```bash
-./tts long_document.txt
-[1/5] [2/5] [3/5] [4/5] [5/5]
+./tts "Chapter 1:" chapter1.txt "End of chapter."
 ```
 
 ---
 
-## 5. Command Reference
+## 7. Content Extraction
 
-### Full Command Syntax
+### Web Content (URLs)
 
-```
-./tts [SOURCE...] [OPTIONS]
-```
+When you provide a URL or press **Shift+Alt+D** with a browser focused, the application extracts the main article content:
 
-### Positional Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `SOURCE` | Text to speak, file path, URL, or `-` for stdin. Multiple words are combined. If omitted, enters interactive mode. |
-
-### Speech Options
-
-| Short | Long | Values | Default | Description |
-|-------|------|--------|---------|-------------|
-| `-l` | `--lang` | `en-us`, `en-uk`, `ta` | config | Language/voice selection |
-| `-s` | `--speed` | `slow`, `normal`, `fast` | config | Speech rate adjustment |
-| `-v` | `--verbose` | - | - | Show detailed progress information |
-
-### Cache Options
-
-| Long | Description |
-|------|-------------|
-| `--no-cache` | Bypass cache, regenerate audio |
-| `--clear-cache` | Delete all cached audio files |
-| `--cache-stats` | Show cache size and statistics |
-
-### Configuration Options
-
-| Long | Description |
-|------|-------------|
-| `--show-config` | Display current configuration |
-| `--generate-config` | Generate sample config file |
-| `--config-path` | Show configuration file path |
-| `--reset-config` | Reset configuration to defaults |
-
-### System Options
-
-| Long | Description |
-|------|-------------|
-| `--list-engines` | Show available TTS engines |
-| `--get-clipboard` | Print clipboard text and exit |
-| `-h`, `--help` | Show help message |
-
-### Examples
+1. **Ad removal** — Decomposes ad containers, banners, and overlays
+2. **Navigation cleanup** — Removes headers, footers, sidebars, and widgets
+3. **Main content detection** — Identifies the article body using semantic HTML tags (`<article>`, `<main>`, ARIA roles) and content-scoring heuristics
+4. **Formatting** — Preserves headings, paragraphs, and blockquotes
 
 ```bash
-# Basic usage
-./tts "Simple text"
+./tts https://en.wikipedia.org/wiki/Text-to-speech
+```
 
-# File with verbose output
-./tts document.txt -v
+### PDF Content
 
-# British English, slow speed
-./tts proofread.txt -l en-uk -s slow
+PDF files are processed with smart content detection:
 
-# Read an e-book
-./tts mybook.epub
+1. Scans the first 50 pages for chapter headings or introduction markers
+2. Skips preface, table of contents, copyright pages
+3. Starts reading from the first significant chapter
 
-# Check cache statistics
+```bash
+./tts report.pdf    # Skips to Chapter 1
+```
+
+### EPUB Content
+
+EPUB files are processed similarly:
+
+1. Scans internal sections for front matter patterns
+2. Skips title pages, TOC, copyright, dedications
+3. Starts reading from the first content chapter
+
+```bash
+./tts novel.epub    # Starts from Chapter 1
+```
+
+### Text Cleaning
+
+All input sources receive automatic text cleaning:
+
+- URLs removed (`https://...`)
+- Email addresses removed (`user@example.com`)
+- Excess whitespace collapsed
+- Common PDF artifacts cleaned
+- Markdown headers and links simplified
+
+### Text Chunking
+
+Long texts are split into chunks for processing:
+
+- Maximum chunk size: based on sentence boundaries
+- Splits at `.`, `!`, `?`, `;`, `:`, `,`
+- Preserves natural speech rhythm
+- Enables per-chunk caching
+
+---
+
+## 8. Languages and Voices
+
+### Available Languages
+
+| Code | Language | Edge TTS Voice | gTTS Fallback |
+|------|----------|---------------|---------------|
+| `en-us` | English (US) | en-US-GuyNeural | English (US) |
+| `en-uk` | English (UK) | en-GB-RyanNeural | English (UK) |
+| `ta` | Tamil | ta-IN-ValluvarNeural | Tamil |
+
+### Language Aliases
+
+| Alias | Maps To |
+|-------|---------|
+| `en` | `en-us` |
+| `en-gb` | `en-uk` |
+
+### Speed Settings
+
+| Speed | Edge TTS Rate | eSpeak WPM |
+|-------|---------------|------------|
+| `slow` | -25% | 120 |
+| `normal` | +0% | 160 |
+| `fast` | +25% | 200 |
+
+### Engine Fallback Chain
+
+The application tries engines in order:
+
+1. **Edge TTS** (primary) — Microsoft Azure neural voices, highest quality
+2. **gTTS** (fallback) — Google Text-to-Speech, good quality, requires internet
+3. **eSpeak** (last resort) — Local synthesis, robotic quality, works offline
+
+Set `default_engine` in the config file to override the automatic selection.
+
+---
+
+## 9. Caching System
+
+### How Caching Works
+
+Generated audio is cached for instant replay:
+
+```
+Cache key  = MD5(text + language + speed)
+Cache dir  = ~/.cache/tts_app/
+File type  = MP3
+```
+
+If the same text with the same language and speed settings is requested again, the cached audio plays immediately without regenerating.
+
+### Cache Management
+
+The cache uses a Least Recently Used (LRU) eviction policy:
+
+- **Default limit**: 500 MB (configurable)
+- **Eviction**: Oldest files are removed when the limit is exceeded
+- **Enforcement**: Cache is checked after each new file is written
+
+### Cache Commands
+
+```bash
+# View cache statistics
 ./tts --cache-stats
 
-# Show current configuration
-./tts --show-config
+# Clear all cached audio
+./tts --clear-cache
 
-# Generate sample config
-./tts --generate-config > ~/.config/tts/config.yaml
-
-# Pipe content
-cat README.md | ./tts -
-
-# Force fresh generation
+# Bypass cache for one run
 ./tts "Test" --no-cache
+
+# Manual cleanup (delete files older than 30 days)
+find ~/.cache/tts_app/ -name "*.mp3" -mtime +30 -delete
+```
+
+### Example Cache Statistics
+
+```
+$ ./tts --cache-stats
+Cache Statistics:
+  Files: 45
+  Size: 2.35 MB / 500 MB
+  Location: /home/user/.cache/tts_app
 ```
 
 ---
 
-## 6. Configuration
+## 10. Configuration
 
 ### Configuration File
-
-The application uses a YAML configuration file for persistent settings:
 
 **Location:** `~/.config/tts/config.yaml`
 
@@ -348,7 +599,7 @@ nano ~/.config/tts/config.yaml
 ### Configuration Options
 
 ```yaml
-# TTS Application Configuration
+# Dawnstar ReadAloud Configuration
 # ~/.config/tts/config.yaml
 
 # Language: en-us, en-uk, ta
@@ -360,7 +611,7 @@ speed: normal
 # Enable audio caching
 cache_enabled: true
 
-# Maximum cache size in megabytes
+# Maximum cache size in megabytes (50-5000)
 cache_max_size_mb: 500
 
 # Show verbose output
@@ -378,16 +629,16 @@ default_engine: null
 
 ### Configuration Priority
 
-Settings are applied in this order (later overrides earlier):
+Settings are applied in order (later overrides earlier):
 
 1. Built-in defaults
-2. Configuration file
-3. Command-line arguments
+2. Configuration file (`~/.config/tts/config.yaml`)
+3. Command-line arguments (`--lang`, `--speed`, etc.)
 
 ### Viewing Configuration
 
 ```bash
-# Show current configuration with source
+# Show current config with source
 ./tts --show-config
 
 # Show config file path
@@ -397,274 +648,20 @@ Settings are applied in this order (later overrides earlier):
 ./tts --reset-config
 ```
 
-### Example Output
-
-```
-$ ./tts --show-config
-Configuration file: /home/user/.config/tts/config.yaml
-Source: file
-
-  language: en-uk
-  speed: normal
-  cache_enabled: True
-  cache_max_size_mb: 500
-  verbose: False
-  notifications: True
-  progress: True
-  default_engine: None
-```
-
 ---
 
-## 7. Keyboard Shortcuts
+## 11. Daemon Mode
 
-### Default Shortcuts
+The daemon mode provides low-latency TTS by keeping the engine loaded in memory.
 
-| Shortcut | Action | Description |
-|----------|--------|-------------|
-| `Ctrl+Alt+S` | Speak from Cursor | Reads from cursor position using accessibility APIs |
-| `Ctrl+Alt+C` | Speak Selection | Reads text from clipboard/selection |
-| `Ctrl+Alt+Q` | Stop Speaking | Stops current playback |
+### Latency Comparison
 
-### How Speak from Cursor Works
-
-This feature uses system accessibility APIs (like AT-SPI on Linux) to find the text container your cursor is currently in. It can extract the full text without needing you to select anything. If accessibility fails, it falls back to the clipboard.
-
-### How Selection Works
-
-**X11 (Traditional):**
-1. Highlight text with mouse (primary selection) - **recommended**
-2. Or copy text with Ctrl+C (clipboard selection)
-3. Press `Ctrl+Alt+C`
-4. The highlighted text is prioritized over copied text
-
-**Wayland:**
-1. Copy text with Ctrl+C
-2. Press `Ctrl+Alt+C`
-
-### Installing Shortcuts
-
-```bash
-python3 configure.py
-```
-
-The script auto-detects your desktop environment:
-- GNOME: Uses gsettings
-- KDE: Modifies kglobalshortcutsrc
-- XFCE: Uses xfconf
-- Sway/Hyprland: Modifies config files
-
-### Manual Shortcut Setup
-
-If automatic setup fails:
-
-**GNOME:**
-1. Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts
-2. Click "Add Shortcut"
-3. Name: `Speak from Cursor`
-4. Command: `/home/em/.local/bin/tts-speak`
-5. Shortcut: Press `Ctrl+Alt+S`
-6. Repeat for `Speak Selection` → `/home/em/.local/bin/tts-selection` → `Ctrl+Alt+C`
-7. Repeat for `Stop Speaking` → `/home/em/.local/bin/tts-stop` → `Ctrl+Alt+Q`
-
----
-
-## 8. Languages and Voices
-
-### Available Languages
-
-| Code | Language | Voice (Edge TTS) | Voice (gTTS Fallback) |
-|------|----------|------------------|----------------------|
-| `en-us` | English (US) | en-US-GuyNeural | English (US) |
-| `en-uk` | English (UK) | en-GB-RyanNeural | English (UK) |
-| `ta` | Tamil | ta-IN-ValluvarNeural | Tamil |
-
-### Language Aliases
-
-| Alias | Maps To |
-|-------|---------|
-| `en` | `en-us` |
-| `en-gb` | `en-uk` |
-
-### Speed Adjustments
-
-| Speed | Rate Change |
-|-------|-------------|
-| `slow` | -25% |
-| `normal` | 0% |
-| `fast` | +25% |
-
-### Engine Priority
-
-The application tries engines in order:
-
-1. **Edge TTS** (Primary) - Microsoft Azure neural voices, highest quality
-2. **gTTS** (Fallback) - Google Text-to-Speech, good quality
-3. **eSpeak** (Last resort) - Synthesized voice, basic quality
-
----
-
-## 9. Text Processing
-
-### Automatic Cleaning
-
-The application automatically removes:
-
-- URLs: `https://example.com/path`
-- Email addresses: `user@example.com`
-- Excess whitespace
-- Common PDF artifacts
-
-### Text Chunking
-
-Long text is split into chunks for processing:
-
-- **Chunk Size**: 500 characters maximum
-- **Boundary Detection**: Splits at sentence endings (`. ! ? ; : ,`)
-- **Purpose**: Ensures smooth playback and better caching
-
-### Supported File Formats
-
-| Format | Extension | Dependencies | Features |
-|--------|-----------|--------------|----------|
-| Plain Text | `.txt` | None | Direct reading |
-| Markdown | `.md` | None | Direct reading |
-| PDF | `.pdf` | `pypdf` | **Smart skip** (finds Chapter 1/Intro) |
-| EPUB | `.epub` | `ebooklib`, `bs4` | **Smart skip** (skips TOC/copyright) |
-| Web Article | `URL` | `bs4` | **Ad-free** (extracts main text) |
-
-### EPUB & PDF Smart Skip
-
-The application automatically identifies and skips "front matter" (Title pages, Copyright, Table of Contents, Dedications) to get straight to the content:
-
-- **EPUB**: Scans internal sections and skips those with low word counts or matching "front matter" patterns until the first significant chapter is found.
-- **PDF**: Scans the first 50 pages for chapter headings or introduction markers. If none are found, it skips a small percentage of the initial pages as a fallback.
-
-```bash
-./tts mybook.epub  # Starts reading from Chapter 1
-./tts report.pdf   # Skips the preface and TOC
-```
-
-### Web Content
-
-When a URL is provided, the application performs high-quality article extraction:
-1. **Ad Removal**: Decomposes ads, banners, and overlays.
-2. **Nav Cleanup**: Skips site-wide navigation, footers, and sidebars.
-3. **TOC Filtering**: Identifies and removes internal "Table of Contents" blocks.
-4. **Main Content**: Intelligently identifies the article body using semantic tags and site-specific rules (e.g., Wikipedia, blogs).
-
-```bash
-./tts https://en.wikipedia.org/wiki/Artificial_intelligence
-```
-
----
-
-## 10. Caching System
-
-### How Caching Works
-
-Audio is cached for instant replay:
-
-```
-Cache Key = MD5(text + language + speed)
-Cache Location = ~/.cache/tts_app/
-```
-
-### LRU Cache Management
-
-The cache automatically manages size:
-
-- **Default Limit**: 500 MB
-- **Eviction Policy**: Least Recently Used (LRU)
-- **Configuration**: Set `cache_max_size_mb` in config file
-
-When the cache exceeds the limit, oldest files are removed automatically.
-
-### Cache Statistics
-
-```bash
-$ ./tts --cache-stats
-Cache Statistics:
-  Files: 45
-  Size: 2.35 MB / 500 MB
-  Location: /home/user/.cache/tts_app
-```
-
-### Managing Cache
-
-```bash
-# View cache statistics
-./tts --cache-stats
-
-# Clear all cached audio
-./tts --clear-cache
-
-# Bypass cache for one run
-./tts "Test" --no-cache
-
-# Manual cleanup (delete files older than 30 days)
-find ~/.cache/tts_app/ -name "*.mp3" -mtime +30 -delete
-```
-
----
-
-## 11. Advanced Usage
-
-### Desktop Notifications
-
-For longer texts, desktop notifications show playback status:
-
-- **Start**: "Speaking N segments..."
-- **Complete**: "Finished speaking"
-- **Error**: "Playback failed"
-
-Configure in `~/.config/tts/config.yaml`:
-
-```yaml
-notifications: true   # Enable notifications
-```
-
-### Piping Content
-
-```bash
-# Read command output
-date | ./tts -
-
-# Read multiple files
-cat chapter1.txt chapter2.txt | ./tts -
-
-# Read from another command
-curl -s https://example.com/api/text | ./tts -
-```
-
-### Scripting
-
-```bash
-#!/bin/bash
-# notification.sh - Speak system notifications
-
-MESSAGE="$1"
-/path/to/tts "$MESSAGE" &
-```
-
-### Cron Job Example
-
-```bash
-# Speak a reminder every hour
-0 * * * * /path/to/tts "It is now $(date +'%I %M %p')"
-```
-
-### Daemon Mode (Low Latency)
-
-For frequent speech synthesis, use the daemon mode for lower latency:
-
-**Latency Comparison:**
-| Mode | Startup Time | Use Case |
-|------|-------------|----------|
-| CLI (`./tts`) | ~500ms | Occasional use |
+| Mode | Startup | Use Case |
+|------|---------|----------|
+| CLI (`./tts`) | ~500ms | Occasional use, scripts |
 | Daemon (`ttsc`) | ~50ms | Frequent use, keyboard shortcuts |
 
-#### Starting the Daemon
+### Starting the Daemon
 
 ```bash
 # Start daemon in foreground (Ctrl+C to stop)
@@ -673,11 +670,11 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 # Start daemon in background
 ./ttsc daemon --fork
 
-# Or using Python module
+# Or via Python module
 ./.venv/bin/python -m ttsd
 ```
 
-#### Using the Daemon
+### Using the Daemon
 
 ```bash
 # Check daemon status
@@ -686,10 +683,10 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 # Speak text
 ./ttsc speak "Hello from the daemon"
 
-# Read a file via daemon
+# Read a file
 ./ttsc speak document.txt
 
-# Read a URL via daemon
+# Read a URL
 ./ttsc speak https://example.com
 
 # Speak clipboard selection
@@ -704,7 +701,7 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 ./ttsc stop-daemon
 ```
 
-#### Daemon Commands
+### Daemon Commands
 
 | Command | Description |
 |---------|-------------|
@@ -717,7 +714,7 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 | `stop` | Stop current playback |
 | `stop-daemon` | Stop the daemon |
 
-#### When to Use Daemon Mode
+### When to Use Daemon Mode
 
 **Use daemon mode when:**
 - You use keyboard shortcuts frequently
@@ -727,17 +724,120 @@ For frequent speech synthesis, use the daemon mode for lower latency:
 **Use CLI mode when:**
 - You occasionally need TTS
 - You want the simplest setup
-- You're running scripts that need isolation
+- You are running scripts that need process isolation
 
 ---
 
-## 12. Troubleshooting
+## 12. Desktop Integration
+
+### Running configure.py
+
+```bash
+python3 configure.py
+```
+
+This script sets up:
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Wrapper scripts | `~/.local/bin/tts*` | System-wide commands |
+| Desktop entry | `~/.local/share/applications/tts.desktop` | Application menu |
+| Keyboard shortcuts | DE-specific | Global hotkeys |
+| Systemd service | `~/.config/systemd/user/tts-daemon.service` | Auto-start daemon |
+
+### Installed Wrapper Scripts
+
+| Script | Path | Maps To |
+|--------|------|---------|
+| `tts` | `~/.local/bin/tts` | Main TTS command |
+| `tts-speak` | `~/.local/bin/tts-speak` | Speak from cursor |
+| `tts-doc` | `~/.local/bin/tts-doc` | Read active document |
+| `tts-selection` | `~/.local/bin/tts-selection` | Speak selection |
+| `tts-stop` | `~/.local/bin/tts-stop` | Stop speaking |
+
+After running configure.py, you can use these commands from anywhere:
+
+```bash
+tts "Hello"              # Speak text
+tts-doc                  # Read active document (same as Shift+Alt+D)
+tts-stop                 # Stop speaking (same as Shift+Alt+Q)
+```
+
+### Systemd Service (Optional)
+
+To start the TTS daemon automatically on login:
+
+```bash
+systemctl --user enable tts-daemon
+```
+
+---
+
+## 13. Advanced Usage
+
+### Scripting
+
+```bash
+#!/bin/bash
+# Speak a notification
+/path/to/tts "$1" &
+```
+
+### Cron Jobs
+
+```bash
+# Hourly time announcement
+0 * * * * /path/to/tts "It is now $(date +'%I %M %p')"
+```
+
+### Piping Content
+
+```bash
+# Read command output
+date | ./tts -
+
+# Combine multiple files
+cat chapter1.txt chapter2.txt | ./tts -
+
+# Read from an API
+curl -s https://api.example.com/text | ./tts -
+```
+
+### Docker
+
+```bash
+# Build the image
+docker build -t dawnstar-readaloud .
+
+# Run with text
+docker run --rm -i --device /dev/snd dawnstar-readaloud "Hello world"
+
+# Run with stdin
+echo "Hello from Docker" | docker run --rm -i --device /dev/ssnd dawnstar-readaloud -
+```
+
+### Debug Mode
+
+When shortcuts don't work, check the debug log:
+
+```bash
+cat /tmp/tts_debug.log
+```
+
+Add debug output for source detection:
+
+```bash
+python3 get_active_source.py  # See what source is detected for current window
+python3 get_accessible_text.py  # See what accessibility APIs return
+```
+
+---
+
+## 14. Troubleshooting
 
 ### No Audio Output
 
-**Symptoms:** Application runs but no sound is heard.
-
-**Solutions:**
+**Symptoms:** The application runs but no sound is heard.
 
 1. Check system audio:
    ```bash
@@ -749,136 +849,140 @@ For frequent speech synthesis, use the daemon mode for lower latency:
    mpg123 ~/.cache/tts_app/*.mp3
    ```
 
-3. Check audio player detection:
-   ```bash
-   ./tts --list-engines
-   ```
-
-4. Install mpg123:
+3. Install mpg123:
    ```bash
    sudo apt install mpg123
    ```
 
-### Loud Hissing/Static
+### Keyboard Shortcuts Not Working
 
-**Cause:** Wrong audio player being used.
+1. Re-run the setup:
+   ```bash
+   python3 configure.py
+   ```
 
-**Solution:** Ensure mpg123 is installed and takes priority:
+2. Log out and back in (GNOME may require this)
+
+3. Check for conflicting shortcuts:
+   - GNOME: Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts
+   - Look for duplicate `Shift+Alt+F/D/C/Q` bindings
+
+4. Test the script directly:
+   ```bash
+   bash /path/to/Dawnstar-ReadAloud/speak_from_cursor.sh
+   ```
+
+5. Check the debug log:
+   ```bash
+   cat /tmp/tts_debug.log
+   ```
+
+### "Read Active Document" Not Detecting Source
+
+The source detection (`Shift+Alt+D`) may fail if:
+
+1. **The application is not recognized** — Check if the application's window class is in the supported list. Run:
+   ```bash
+   xdotool getactivewindow | xargs -I{} xprop -id {} WM_CLASS
+   ```
+
+2. **The file is not in search paths** — Source detection searches recently-used files, common directories, and the process's open file descriptors. Make sure the file was recently opened.
+
+3. **The window title doesn't contain the filename** — Some applications use custom title formats that the parser doesn't recognize.
+
+Debug the detection:
 ```bash
-which mpg123  # Should return /usr/bin/mpg123
+python3 get_active_source.py  # Should print a file path or URL
+echo $?                       # 0 = success, 1 = no source detected
 ```
 
-### "No audio player found" Error
+### "Speak from Cursor" Not Working
 
-**Solutions:**
-```bash
-# Install mpg123 (recommended)
-sudo apt install mpg123
+1. **Accessibility APIs not available** — The application must support AT-SPI. Most GTK and Qt apps do. Try highlighting text first as a fallback.
 
-# Alternative: Install VLC
-sudo apt install vlc
+2. **No text at cursor** — Ensure the cursor is positioned inside a text container with actual text content.
 
-# Alternative: Install ffmpeg
-sudo apt install ffmpeg
-```
+3. **Test accessibility directly:**
+   ```bash
+   python3 get_accessible_text.py
+   ```
 
 ### Clipboard Not Working
 
 **X11:**
 ```bash
 sudo apt install xclip
-xclip -o -selection clipboard
+xclip -o -selection clipboard    # Test clipboard
+xclip -o -selection primary      # Test primary selection
 ```
 
 **Wayland:**
 ```bash
 sudo apt install wl-clipboard
-wl-paste
+wl-paste                         # Test clipboard
 ```
-
-### Keyboard Shortcuts Not Working
-
-1. **Verify installation:**
-   ```bash
-   python3 configure.py
-   ```
-
-2. **Log out and back in** (GNOME sometimes requires this)
-
-3. **Check for conflicts:**
-   - Open Settings → Keyboard → Shortcuts
-   - Look for duplicate `Ctrl+Alt+S` bindings
-
-4. **Manual test:**
-   ```bash
-   ~/.local/bin/tts-speak
-   ```
 
 ### EPUB Not Working
 
-**Symptoms:** Error reading EPUB files.
+Install the required dependencies:
 
-**Solution:** Install required dependencies:
 ```bash
 ./.venv/bin/pip install ebooklib beautifulsoup4
 ```
 
+### PDF Not Working
+
+Install poppler-utils and pypdf:
+
+```bash
+sudo apt install poppler-utils
+./.venv/bin/pip install pypdf
+```
+
 ### Notifications Not Showing
 
-**Cause:** `notify-send` not installed.
-
-**Solution:**
 ```bash
 sudo apt install libnotify-bin
 ```
 
-Or disable notifications in config:
+Or disable in config:
+
 ```yaml
 notifications: false
 ```
 
 ### Cache Growing Too Large
 
-**Solution:**
 ```bash
-# Check cache size
-./tts --cache-stats
+./tts --cache-stats     # Check current size
+./tts --clear-cache     # Clear everything
+```
 
-# Reduce limit in config
-# Edit ~/.config/tts/config.yaml
+Or reduce the limit in `~/.config/tts/config.yaml`:
+
+```yaml
 cache_max_size_mb: 200
-
-# Or clear cache
-./tts --clear-cache
 ```
 
 ### "edge-tts not found" Error
 
-**Cause:** Virtual environment not activated or dependencies not installed.
+Reinstall Python dependencies:
 
-**Solutions:**
 ```bash
-# Reinstall dependencies
 ./.venv/bin/pip install -e .
-
-# Verify installation
 ./.venv/bin/pip show edge-tts
 ```
 
 ### Configuration Not Loading
 
-**Symptoms:** Settings in config file not being applied.
-
-**Solutions:**
-
-1. Check config file path:
+1. Check the config file path:
    ```bash
    ./tts --config-path
    ```
 
 2. Verify YAML syntax:
    ```bash
-   python3 -c "import yaml; yaml.safe_load(open('~/.config/tts/config.yaml'))"
+   python3 -c "import yaml; yaml.safe_load(open('$HOME/.config/tts/config.yaml'))"
    ```
 
 3. Show current config:
@@ -888,18 +992,22 @@ cache_max_size_mb: 200
 
 ---
 
-## 13. File Locations
+## 15. File Locations
 
 | File | Location | Purpose |
 |------|----------|---------|
 | Configuration | `~/.config/tts/config.yaml` | User preferences |
-| Cache | `~/.cache/tts_app/` | Generated audio files |
-| Desktop Entry | `~/.local/share/applications/tts.desktop` | Application menu entry |
-| Wrapper Scripts | `~/.local/bin/tts*` | System-wide commands |
+| Cache | `~/.cache/tts_app/` | Generated audio files (MP3) |
+| Desktop entry | `~/.local/share/applications/tts.desktop` | Application menu |
+| Wrapper scripts | `~/.local/bin/tts*` | System-wide commands |
+| Systemd service | `~/.config/systemd/user/tts-daemon.service` | Daemon auto-start |
+| Debug log | `/tmp/tts_debug.log` | Shortcut activity log |
+| Sentence state | `/tmp/tts_cursor_state/` | Current sentence tracking |
+| Daemon socket | `/tmp/tts-daemon.sock` | IPC socket |
 
 ---
 
-## 14. Uninstallation
+## 16. Uninstallation
 
 ### Remove System Integration
 
@@ -908,6 +1016,9 @@ rm ~/.local/share/applications/tts.desktop
 rm ~/.local/bin/tts
 rm ~/.local/bin/tts-stop
 rm ~/.local/bin/tts-speak
+rm ~/.local/bin/tts-doc
+rm ~/.local/bin/tts-selection
+rm ~/.config/systemd/user/tts-daemon.service
 ```
 
 ### Remove Configuration and Cache
@@ -920,47 +1031,69 @@ rm -rf ~/.cache/tts_app/
 ### Remove Application
 
 ```bash
-rm -rf /path/to/tts/
+rm -rf /path/to/Dawnstar-ReadAloud/
 ```
 
 ---
 
-## Appendix: Quick Reference Card
+## Quick Reference Card
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TTS QUICK REFERENCE                       │
-├─────────────────────────────────────────────────────────────┤
-│  BASIC USAGE                                                 │
-│  ./tts "text"              Speak text directly               │
-│  ./tts file.txt            Read file aloud                   │
-│  ./tts book.epub           Read e-book                       │
-│  ./tts -                   Read from stdin                   │
-├─────────────────────────────────────────────────────────────┤
-│  OPTIONS                                                     │
-│  -l, --lang LANG           Language: en-us, en-uk, ta        │
-│  -s, --speed SPEED         Speed: slow, normal, fast         │
-│  -v, --verbose             Show progress                     │
-│  --no-cache                Skip cache                        │
-│  --cache-stats             Show cache statistics             │
-│  --show-config             Display configuration             │
-├─────────────────────────────────────────────────────────────┤
-│  KEYBOARD SHORTCUTS                                          │
-│  Ctrl+Alt+S                Speak from cursor                 │
-│  Ctrl+Alt+C                Speak selection                   │
-│  Ctrl+Alt+Q                Stop speaking                     │
-├─────────────────────────────────────────────────────────────┤
-│  CONFIG FILE: ~/.config/tts/config.yaml                      │
-│  language: en-us                                             │
-│  speed: normal                                               │
-│  cache_max_size_mb: 500                                      │
-│  notifications: true                                         │
-│  progress: true                                              │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    DAWNSTAR READALOUD                             │
+│                    Quick Reference                                │
+├──────────────────────────────────────────────────────────────────┤
+│  KEYBOARD SHORTCUTS                                              │
+│  Shift+Alt+F    Speak from cursor position                       │
+│  Shift+Alt+D    Read active document (PDF, EPUB, URL)            │
+│  Shift+Alt+C    Speak selected/highlighted text                  │
+│  Shift+Alt+Q    Stop speaking                                    │
+├──────────────────────────────────────────────────────────────────┤
+│  CLI USAGE                                                       │
+│  ./tts "text"              Speak text directly                   │
+│  ./tts file.txt            Read file                             │
+│  ./tts book.epub           Read e-book (skips front matter)      │
+│  ./tts report.pdf          Read PDF (skips preface)              │
+│  ./tts https://...         Read web article (skips ads)          │
+│  ./tts -                   Read from stdin                       │
+│  ./tts                      Interactive mode                     │
+├──────────────────────────────────────────────────────────────────┤
+│  OPTIONS                                                         │
+│  -l, --lang LANG           Language: en-us, en-uk, ta            │
+│  -s, --speed SPEED         Speed: slow, normal, fast             │
+│  -v, --verbose             Show detailed progress                │
+│  --no-cache                Skip cache, regenerate audio          │
+│  --cache-stats             Show cache statistics                 │
+│  --clear-cache             Delete all cached audio               │
+│  --show-config             Display configuration                 │
+│  --generate-config         Generate sample config file           │
+│  --list-engines            Show available TTS engines            │
+├──────────────────────────────────────────────────────────────────┤
+│  DAEMON                                                          │
+│  ./ttsc daemon              Start daemon                         │
+│  ./ttsc speak "text"        Speak via daemon                     │
+│  ./ttsc pause               Pause playback                       │
+│  ./ttsc resume              Resume playback                      │
+│  ./ttsc stop                Stop playback                        │
+│  ./ttsc stop-daemon         Stop daemon                          │
+├──────────────────────────────────────────────────────────────────┤
+│  CONFIG: ~/.config/tts/config.yaml                               │
+│  language: en-us                                                 │
+│  speed: normal                                                   │
+│  cache_max_size_mb: 500                                          │
+│  notifications: true                                             │
+│  default_engine: null                                            │
+├──────────────────────────────────────────────────────────────────┤
+│  FILES                                                           │
+│  Config:    ~/.config/tts/config.yaml                            │
+│  Cache:     ~/.cache/tts_app/                                    │
+│  Debug log: /tmp/tts_debug.log                                   │
+│  Wrappers:  ~/.local/bin/tts*                                    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Support
 
-For issues and feature requests, please check the project documentation or submit an issue on the project repository.
+For issues and feature requests, please check the project repository.

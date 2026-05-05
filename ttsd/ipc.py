@@ -84,10 +84,9 @@ class UnixSocketServer:
 
             # SECURITY: Explicitly set socket permissions after creation
             # (umask may not be sufficient on all systems)
-            try:
+            import contextlib
+            with contextlib.suppress(OSError):
                 os.chmod(self.socket_path, 0o600)
-            except OSError:
-                pass  # Best effort - umask should have handled it
 
             self._running = True
             await self._shutdown_event.wait()
@@ -218,7 +217,7 @@ class UnixSocketServer:
 
         except (OSError, RuntimeError, ValueError, KeyError) as e:
             return {"status": "error", "message": str(e)}
-        except Exception as e:
+        except Exception:
             # Catch-all for unexpected errors — use generic message
             # to avoid leaking internal details to IPC clients
             return {"status": "error", "message": "Internal error"}

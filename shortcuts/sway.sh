@@ -7,14 +7,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
+CMD_CURSOR="$TTS_ROOT/speak_from_cursor.sh"
+CMD_DOC="$TTS_ROOT/speak_active_doc.sh"
 CMD_SELECTION="$TTS_ROOT/speak_selection.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up Sway/Hyprland keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_SELECTION" "$CMD_STOP"
+chmod +x "$CMD_CURSOR" "$CMD_DOC" "$CMD_SELECTION" "$CMD_STOP"
 
 # Detect which compositor is in use
 detect_compositor() {
@@ -46,26 +47,25 @@ setup_sway() {
     mkdir -p "$config_dir"
 
     # Check if our shortcuts already exist
-    if grep -q "TTS: Speak Selection" "$config_file" 2>/dev/null; then
+    if grep -q "TTS: Speak From Cursor" "$config_file" 2>/dev/null; then
         echo "  Sway shortcuts already configured"
         return
     fi
 
     # Append shortcuts
-    # Mod4 is the Super/Meta key
-    cat >> "$config_file" << 'EOF'
+    cat >> "$config_file" << EOF
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-bindsym Ctrl+Alt+s exec CMD_SPEAK_PLACEHOLDER
-bindsym Ctrl+Alt+c exec CMD_SELECTION_PLACEHOLDER
-bindsym Ctrl+Alt+q exec CMD_STOP_PLACEHOLDER
+# Shift+Alt+F: Speak from cursor position
+bindsym Shift+Alt+f exec $CMD_CURSOR
+# Shift+Alt+D: Read active document from beginning
+bindsym Shift+Alt+d exec $CMD_DOC
+# Shift+Alt+C: Speak selected text (clipboard)
+bindsym Shift+Alt+c exec $CMD_SELECTION
+# Shift+Alt+Q: Stop speaking
+bindsym Shift+Alt+q exec $CMD_STOP
 EOF
-
-    # Replace placeholders with actual paths
-    sed -i "s|CMD_SPEAK_PLACEHOLDER|$CMD_SPEAK|g" "$config_file"
-    sed -i "s|CMD_SELECTION_PLACEHOLDER|$CMD_SELECTION|g" "$config_file"
-    sed -i "s|CMD_STOP_PLACEHOLDER|$CMD_STOP|g" "$config_file"
 
     echo "  Added shortcuts to $config_file"
     echo "  Run 'sway reload' to apply changes"
@@ -80,26 +80,25 @@ setup_hyprland() {
     mkdir -p "$config_dir"
 
     # Check if our shortcuts already exist
-    if grep -q "TTS: Speak Selection" "$config_file" 2>/dev/null; then
+    if grep -q "TTS: Speak From Cursor" "$config_file" 2>/dev/null; then
         echo "  Hyprland shortcuts already configured"
         return
     fi
 
     # Append shortcuts
-    # SUPER is the Meta/Super key in Hyprland
-    cat >> "$config_file" << 'EOF'
+    cat >> "$config_file" << EOF
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-bind = CTRL ALT, s, exec, CMD_SPEAK_PLACEHOLDER
-bind = CTRL ALT, c, exec, CMD_SELECTION_PLACEHOLDER
-bind = CTRL ALT, q, exec, CMD_STOP_PLACEHOLDER
+# Shift+Alt+F: Speak from cursor position
+bind = SHIFT ALT, f, exec, $CMD_CURSOR
+# Shift+Alt+D: Read active document from beginning
+bind = SHIFT ALT, d, exec, $CMD_DOC
+# Shift+Alt+C: Speak selected text (clipboard)
+bind = SHIFT ALT, c, exec, $CMD_SELECTION
+# Shift+Alt+Q: Stop speaking
+bind = SHIFT ALT, q, exec, $CMD_STOP
 EOF
-
-    # Replace placeholders with actual paths
-    sed -i "s|CMD_SPEAK_PLACEHOLDER|$CMD_SPEAK|g" "$config_file"
-    sed -i "s|CMD_SELECTION_PLACEHOLDER|$CMD_SELECTION|g" "$config_file"
-    sed -i "s|CMD_STOP_PLACEHOLDER|$CMD_STOP|g" "$config_file"
 
     echo "  Added shortcuts to $config_file"
     echo "  Run 'hyprctl reload' to apply changes"
@@ -117,14 +116,16 @@ case "$COMPOSITOR" in
         echo "  Add these lines to your config:"
         echo ""
         echo "  For Sway:"
-        echo "    bindsym Ctrl+Alt+s exec $CMD_SPEAK"
-        echo "    bindsym Ctrl+Alt+c exec $CMD_SELECTION"
-        echo "    bindsym Ctrl+Alt+q exec $CMD_STOP"
+        echo "    bindsym Shift+Alt+f exec $CMD_CURSOR"
+        echo "    bindsym Shift+Alt+d exec $CMD_DOC"
+        echo "    bindsym Shift+Alt+c exec $CMD_SELECTION"
+        echo "    bindsym Shift+Alt+q exec $CMD_STOP"
         echo ""
         echo "  For Hyprland:"
-        echo "    bind = CTRL ALT, s, exec, $CMD_SPEAK"
-        echo "    bind = CTRL ALT, c, exec, $CMD_SELECTION"
-        echo "    bind = CTRL ALT, q, exec, $CMD_STOP"
+        echo "    bind = SHIFT ALT, f, exec, $CMD_CURSOR"
+        echo "    bind = SHIFT ALT, d, exec, $CMD_DOC"
+        echo "    bind = SHIFT ALT, c, exec, $CMD_SELECTION"
+        echo "    bind = SHIFT ALT, q, exec, $CMD_STOP"
         ;;
 esac
 

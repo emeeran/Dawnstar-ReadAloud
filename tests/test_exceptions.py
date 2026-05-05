@@ -1,19 +1,21 @@
 """Unit tests for custom exceptions module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.exceptions import (
-    TTSError,
-    ConfigurationError,
-    ExtractionError,
-    EngineError,
-    PlaybackError,
-    IPCError,
     CacheError,
+    ConfigurationError,
+    EngineError,
+    ExtractionError,
+    IPCError,
+    PlaybackError,
     SecurityError,
+    TTSError,
 )
 
 
@@ -121,6 +123,3 @@ class TestExceptionUsage:
         except EngineError as e:
             assert e.__cause__ is not None
             assert isinstance(e.__cause__, ValueError)
-
-
-import pytest

@@ -14,9 +14,9 @@ try:
 except ImportError:
     HAS_BS4 = False
 
-from .logger import Logger
 from .config import TTSConfig
 from .exceptions import SecurityError
+from .logger import Logger
 
 # Allowed URL schemes - only HTTP/HTTPS permitted for security
 ALLOWED_SCHEMES = ('http://', 'https://')

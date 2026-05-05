@@ -9,8 +9,8 @@ Sets up:
 """
 
 import os
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 
 # Configuration
@@ -19,6 +19,7 @@ SCRIPT_DIR = Path(__file__).parent
 CMD_TTS = Path.home() / ".local/bin/tts"
 CMD_STOP = Path.home() / ".local/bin/tts-stop"
 CMD_SPEAK = Path.home() / ".local/bin/tts-speak"
+CMD_DOC = Path.home() / ".local/bin/tts-doc"
 CMD_SELECTION = Path.home() / ".local/bin/tts-selection"
 
 
@@ -79,6 +80,14 @@ exec {SCRIPT_DIR.resolve()}/speak_from_cursor.sh "$@"
     CMD_SPEAK.write_text(speak_content)
     CMD_SPEAK.chmod(0o755)
     print(f"   Installed: {CMD_SPEAK}")
+
+    # Read active document wrapper
+    doc_content = f"""#!/bin/bash
+exec {SCRIPT_DIR.resolve()}/speak_active_doc.sh "$@"
+"""
+    CMD_DOC.write_text(doc_content)
+    CMD_DOC.chmod(0o755)
+    print(f"   Installed: {CMD_DOC}")
 
     # Speak selection wrapper
     selection_content = f"""#!/bin/bash
@@ -190,9 +199,10 @@ def main():
     print("  ttsc stop                 - Stop speaking")
     print()
     print("Keyboard shortcuts:")
-    print("  Ctrl+Alt+S - Speak from cursor")
-    print("  Ctrl+Alt+C - Speak selection")
-    print("  Ctrl+Alt+Q - Stop speaking")
+    print("  Shift+Alt+F - Speak from cursor")
+    print("  Shift+Alt+D - Read active document")
+    print("  Shift+Alt+C - Speak selection")
+    print("  Shift+Alt+Q - Stop speaking")
     print()
     print("You may need to log out and back in for shortcuts to take effect.")
 

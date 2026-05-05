@@ -183,8 +183,8 @@ class EdgeTTSBackend(TTSBackend):
         )
         try:
             return future.result(timeout=AUDIO_GENERATION_TIMEOUT)
-        except asyncio.TimeoutError as e:
-            raise asyncio.TimeoutError(
+        except TimeoutError as e:
+            raise TimeoutError(
                 f"Edge TTS audio generation timed out after {AUDIO_GENERATION_TIMEOUT}s"
             ) from e
 
@@ -391,13 +391,7 @@ class TTSEngine:
                 Logger.log(f"Generated with {backend.get_name()}", self.config)
                 return data
 
-            except (
-                subprocess.CalledProcessError,
-                OSError,
-                RuntimeError,
-                subprocess.TimeoutExpired,
-                asyncio.TimeoutError,
-            ) as error:
+            except (TimeoutError, subprocess.CalledProcessError, OSError, RuntimeError, subprocess.TimeoutExpired) as error:
                 if self.config.verbose:
                     print(f"  Backend {backend.get_name()} failed: {error}")
                 continue

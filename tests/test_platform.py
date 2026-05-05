@@ -1,18 +1,18 @@
 """Unit tests for platform detection module."""
 
-from pathlib import Path
 import sys
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.platform import (
-    DisplayServer,
     DesktopEnvironment,
-    detect_os,
-    detect_display_server,
-    detect_desktop_environment,
+    DisplayServer,
     detect_available_engines,
+    detect_desktop_environment,
+    detect_display_server,
+    detect_os,
 )
 
 

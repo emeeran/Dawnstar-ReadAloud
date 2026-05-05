@@ -217,7 +217,7 @@ def supports_ansi_colors() -> bool:
         return True
 
     # Windows check
-    if detect_os() == "windows":
+    if detect_os() == "windows":  # noqa: SIM103
         # Modern Windows 10 supports ANSI, but be conservative
         return False
 

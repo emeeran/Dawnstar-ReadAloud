@@ -10,6 +10,11 @@ venv/
 
 # Cache
 .cache/
+.mypy_cache/
+.pytest_cache/
+
+# Session logs
+pause.txt
 
 # IDE
 .idea/
