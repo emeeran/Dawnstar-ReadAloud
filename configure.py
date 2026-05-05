@@ -19,14 +19,15 @@ SCRIPT_DIR = Path(__file__).parent
 CMD_TTS = Path.home() / ".local/bin/tts"
 CMD_STOP = Path.home() / ".local/bin/tts-stop"
 CMD_SPEAK = Path.home() / ".local/bin/tts-speak"
+CMD_SELECTION = Path.home() / ".local/bin/tts-selection"
 
 
-def run_cmd(args):
+def run_cmd(args: list[str]) -> bool:
     """Run command, return True on success."""
     try:
         subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
-    except Exception:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
         return False
 
 
@@ -50,36 +51,42 @@ def check_dependencies():
 
 def install_wrapper_scripts():
     """Install wrapper scripts to ~/.local/bin/."""
-    print("Installing wrapper scripts (fallback mode)...")
+    print("Installing wrapper scripts...")
 
     bin_dir = CMD_TTS.parent
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    if shutil.which("tts"):
-        print("   Found installed 'tts' command (entry point), skipping main wrapper")
-    else:
-        tts_content = f"""#!/bin/bash
-exec {SCRIPT_DIR}/tts "$@"
+    # Main tts command
+    tts_content = f"""#!/bin/bash
+exec {SCRIPT_DIR.resolve()}/tts "$@"
 """
-        CMD_TTS.write_text(tts_content)
-        CMD_TTS.chmod(0o755)
-        print(f"   Installed fallback: {CMD_TTS}")
+    CMD_TTS.write_text(tts_content)
+    CMD_TTS.chmod(0o755)
+    print(f"   Installed: {CMD_TTS}")
 
     # Stop wrapper
     stop_content = f"""#!/bin/bash
-exec {SCRIPT_DIR}/stop_speaking.sh "$@"
+exec {SCRIPT_DIR.resolve()}/stop_speaking.sh "$@"
 """
     CMD_STOP.write_text(stop_content)
     CMD_STOP.chmod(0o755)
     print(f"   Installed: {CMD_STOP}")
 
-    # Speak selection wrapper
+    # Speak from cursor wrapper
     speak_content = f"""#!/bin/bash
-exec {SCRIPT_DIR}/speak_from_cursor.sh "$@"
+exec {SCRIPT_DIR.resolve()}/speak_from_cursor.sh "$@"
 """
     CMD_SPEAK.write_text(speak_content)
     CMD_SPEAK.chmod(0o755)
     print(f"   Installed: {CMD_SPEAK}")
+
+    # Speak selection wrapper
+    selection_content = f"""#!/bin/bash
+exec {SCRIPT_DIR.resolve()}/speak_selection.sh "$@"
+"""
+    CMD_SELECTION.write_text(selection_content)
+    CMD_SELECTION.chmod(0o755)
+    print(f"   Installed: {CMD_SELECTION}")
 
 
 def install_systemd_service():
@@ -143,9 +150,10 @@ Name={APP_NAME}
 Comment=Speak selected text or files
 Exec={tts_exec} %F
 Icon=audio-headset
-Terminal=false
+Terminal=true
 Categories=Utility;Audio;Accessibility;
 Keywords=tts;listen;speech;text-to-speech;
+MimeType=text/plain;application/pdf;application/epub+zip;text/markdown;
 StartupNotify=false
 """
     desktop_file.write_text(content)
@@ -182,7 +190,8 @@ def main():
     print("  ttsc stop                 - Stop speaking")
     print()
     print("Keyboard shortcuts:")
-    print("  Ctrl+Alt+S - Speak selection")
+    print("  Ctrl+Alt+S - Speak from cursor")
+    print("  Ctrl+Alt+C - Speak selection")
     print("  Ctrl+Alt+Q - Stop speaking")
     print()
     print("You may need to log out and back in for shortcuts to take effect.")

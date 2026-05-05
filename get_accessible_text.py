@@ -5,8 +5,13 @@ This extracts text from the currently focused application without
 any visual selection or scrolling.
 """
 
-import pyatspi
 import sys
+
+try:
+    import pyatspi
+except ImportError:
+    print("pyatspi is required: pip install pyatspi")
+    sys.exit(1)
 
 
 # Minimum text length to consider valid (avoid window titles, labels)
@@ -32,13 +37,12 @@ def get_focused_text_from_cursor():
                 try:
                     frame_state = frame.getState()
                     if frame_state and frame_state.contains(pyatspi.STATE_ACTIVE):
-                        # Found active frame, look for text with cursor
                         text = find_text_from_cursor(frame)
                         if text and len(text) > len(best_text):
                             best_text = text
-                except Exception:
+                except (AttributeError, RuntimeError):
                     continue
-        except Exception:
+        except (AttributeError, RuntimeError):
             continue
 
     return best_text
@@ -74,7 +78,7 @@ def find_text_from_cursor(obj, depth=0):
                     text_stripped = text.strip()
                     if len(text_stripped) > MIN_TEXT_LENGTH:
                         best_text = text_stripped
-    except Exception:
+    except (AttributeError, RuntimeError, NotImplementedError):
         pass
 
     # Recursively search children for longer text
@@ -85,7 +89,7 @@ def find_text_from_cursor(obj, depth=0):
                 result = find_text_from_cursor(child, depth + 1)
                 if result and len(result) > len(best_text):
                     best_text = result
-    except Exception:
+    except (AttributeError, RuntimeError, IndexError):
         pass
 
     return best_text
@@ -112,9 +116,9 @@ def get_selected_text():
                         text = find_selected_text(frame)
                         if text:
                             return text
-                except Exception:
+                except (AttributeError, RuntimeError):
                     continue
-        except Exception:
+        except (AttributeError, RuntimeError):
             continue
 
     return ""
@@ -144,7 +148,7 @@ def find_selected_text(obj, depth=0):
                     selected = text_iface.getText(start, end)
                     if selected and selected.strip():
                         return selected.strip()
-    except Exception:
+    except (AttributeError, RuntimeError, NotImplementedError):
         pass
 
     # Check selection interface
@@ -159,9 +163,9 @@ def find_selected_text(obj, depth=0):
                         text = child_text.getText(0, child_text.characterCount)
                         if text and text.strip():
                             return text.strip()
-                except Exception:
+                except (AttributeError, RuntimeError, NotImplementedError):
                     pass
-    except Exception:
+    except (AttributeError, RuntimeError, NotImplementedError):
         pass
 
     # Recursively search children
@@ -172,7 +176,7 @@ def find_selected_text(obj, depth=0):
                 result = find_selected_text(child, depth + 1)
                 if result:
                     return result
-    except Exception:
+    except (AttributeError, RuntimeError, IndexError):
         pass
 
     return ""

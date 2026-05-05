@@ -12,8 +12,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Try to find modules locally first, then in the system installation directory
+script_dir = Path(__file__).parent
+if (script_dir / "core").exists():
+    sys.path.insert(0, str(script_dir))
+elif Path("/usr/lib/dawnstar-readaloud").exists():
+    sys.path.insert(0, "/usr/lib/dawnstar-readaloud")
 
 from ttsd import TTSDaemon, IPCClient
 from ttsd.ipc import UnixSocketServer

@@ -18,7 +18,7 @@ _MAX_URL_SIZE = 10 * 1024 * 1024  # 10 MB
 _HTML_CONTENT_SIZE_LIMIT = 100 * 100  # 100 KB
 _COMPILED_SKIP_PATTERNS = [
     re.compile(r'(?:comment|feedback|footer|menu|header|nav|sidebar)\b', re.IGNORECASE),
-    re.compile(r'\b(article\b.*?[\s]*tags?\]', re.IGNORECASE),
+    re.compile(r'\barticle\b.*?[\s]*tags?\]', re.IGNORECASE),
     re.compile(r'\b(post-content|entry-content|main-content)\b', re.IGNORECASE),
     re.compile(r'\b\d-s\d.*?\s*<\d.*>', re.IGNORECASE),
     re.compile(r'\bsingle-author\b.*?\s*<\d.*', re.IGNORECASE),
@@ -63,19 +63,19 @@ def extract_url_content(url: str, timeout: int = 20) -> Optional[str]:
             # Check content-length if available
             content_length = response.headers.get('Content-Length')
             if content_length and int(content_length) > _MAX_URL_SIZE:
-                Logger.log(f"Content too large ({content_length} bytes), config)
+                Logger.log(f"Content too large ({content_length} bytes)", config)
                 return None
             html = response.read(_MAX_URL_SIZE).decode('utf-8', errors='ignore')
-        except (URLError, urllib.error.URLError) as e:
-            Logger.log(f"URL fetch error: {e}", config)
-            return None
-        except (OSError, ValueError) as e:
-            Logger.log(f"URL connection error: {e}", config)
-            return None
-        except Exception as e:
-            # Catch-all for BeautifulSoup errors
-            Logger.log(f"HTML parsing error: {e}", config)
-            return None
+    except (URLError, urllib.error.URLError) as e:
+        Logger.log(f"URL fetch error: {e}", config)
+        return None
+    except (OSError, ValueError) as e:
+        Logger.log(f"URL connection error: {e}", config)
+        return None
+    except Exception as e:
+        # Catch-all for BeautifulSoup errors
+        Logger.log(f"HTML parsing error: {e}", config)
+        return None
 
     # Parse HTML
     soup = BeautifulSoup(html, 'html.parser')

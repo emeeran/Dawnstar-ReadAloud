@@ -22,3 +22,16 @@ docker ps -q --filter ancestor=enhanced-tts:latest | xargs -r docker kill
 pkill -f "python.*app.py"
 pkill -f edge-tts
 pkill -f mpg123
+pkill -f vlc
+pkill -f paplay
+pkill -f ffplay
+
+# 5. FORCE Cleanup (if still running after 0.5s)
+sleep 0.5
+pkill -9 -f mpg123
+pkill -9 -f edge-tts
+pkill -9 -f "python.*app.py"
+
+# Cleanup state directory
+rm -rf /tmp/tts_cursor_state/*
+rm -f /tmp/tts_cursor_*.txt

@@ -1,61 +1,78 @@
 #!/bin/bash
-# GNOME Keyboard Shortcuts Setup
-# Uses gsettings for GNOME/GTK-based desktops
+# GNOME Keyboard Shortcuts Setup (Ultra-Safe/Additive)
+# Merges shortcuts without ever deleting existing ones.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
-CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
-CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
-CMD_STOP="$TTS_ROOT/stop_speaking.sh"
+CMD_SPEAK="/bin/bash -lc '$TTS_ROOT/speak_from_cursor.sh'"
+CMD_SELECTION="/bin/bash -lc '$TTS_ROOT/speak_selection.sh'"
+CMD_STOP="/bin/bash -lc '$TTS_ROOT/stop_speaking.sh'"
 
 SCHEMA_KEYS="org.gnome.settings-daemon.plugins.media-keys"
 SCHEMA_BINDING="${SCHEMA_KEYS}.custom-keybinding"
 
 echo "Setting up GNOME keyboard shortcuts..."
 
-# Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
+# 1. Get current paths
+CURRENT_PATHS=$(gsettings get "$SCHEMA_KEYS" custom-keybindings | grep -o "'/[^']*'" | sed "s/'//g")
 
-# Define shortcuts (index, name, command, binding)
-# Custom0 is reserved (e.g., for Flameshot)
-# Keybindings: Shift+Meta (Super) = <Shift><Super>
-SHORTCUTS=(
-    "1|Speak Selection|/bin/bash -lc '$CMD_SPEAK'|<Shift><Super>s"
-    "2|Pause Speaking|/bin/bash -lc '$CMD_PAUSE'|<Shift><Super>c"
-    "3|Stop Speaking|/bin/bash -lc '$CMD_STOP'|<Shift><Super>q"
-)
-
-# Build binding list
-BINDING_LIST="["
-FIRST=true
-for entry in "${SHORTCUTS[@]}"; do
-    IFS='|' read -r idx name cmd binding <<< "$entry"
-    if [ "$FIRST" = true ]; then
-        FIRST=false
-    else
-        BINDING_LIST+=", "
+declare -A ALL_PATHS
+MAX_IDX=-1
+for p in $CURRENT_PATHS; do
+    [[ "$p" != */ ]] && p="${p}/"
+    ALL_PATHS["$p"]=1
+    IDX=$(echo "$p" | grep -o 'custom[0-9]*' | sed 's/custom//')
+    if [[ -n "$IDX" ]]; then
+        if (( IDX > MAX_IDX )); then MAX_IDX=$IDX; fi
     fi
-    BINDING_LIST+="\"/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom${idx}/\""
-done
-BINDING_LIST+="]"
-
-# Preserve custom0 (often used by other apps like Flameshot)
-gsettings set "$SCHEMA_KEYS" custom-keybindings "$BINDING_LIST"
-
-# Set up each shortcut
-for entry in "${SHORTCUTS[@]}"; do
-    IFS='|' read -r idx name cmd binding <<< "$entry"
-
-    PATH_KEY="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom${idx}/"
-
-    gsettings set "${SCHEMA_BINDING}:${PATH_KEY}" name "$name"
-    gsettings set "${SCHEMA_BINDING}:${PATH_KEY}" command "$cmd"
-    gsettings set "${SCHEMA_BINDING}:${PATH_KEY}" binding "$binding"
-
-    echo "  Set '$name' to $binding"
 done
 
-echo "GNOME shortcuts configured!"
+# 2. Our target shortcuts
+declare -A TARGETS
+TARGETS["Speak From Cursor"]="$CMD_SPEAK|<Control><Alt>s"
+TARGETS["Speak Selected"]="$CMD_SELECTION|<Control><Alt>c"
+TARGETS["Stop Speaking"]="$CMD_STOP|<Control><Alt>q"
+
+# 3. Update or Add
+for NAME in "${!TARGETS[@]}"; do
+    IFS='|' read -r CMD BINDING <<< "${TARGETS[$NAME]}"
+    FOUND_PATH=""
+    
+    # Search in existing
+    for p in "${!ALL_PATHS[@]}"; do
+        EXISTING_NAME=$(gsettings get "${SCHEMA_BINDING}:${p}" name | sed "s/^'//;s/'$//")
+        EXISTING_CMD=$(gsettings get "${SCHEMA_BINDING}:${p}" command | sed "s/^'//;s/'$//")
+        if [[ "$EXISTING_NAME" == "$NAME" || "$EXISTING_CMD" == "$CMD" ]]; then
+            FOUND_PATH="$p"
+            break
+        fi
+    done
+    
+    if [[ -n "$FOUND_PATH" ]]; then
+        echo "  Updating '$NAME' at $FOUND_PATH"
+    else
+        MAX_IDX=$((MAX_IDX + 1))
+        FOUND_PATH="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom${MAX_IDX}/"
+        ALL_PATHS["$FOUND_PATH"]=1
+        echo "  Creating '$NAME' at $FOUND_PATH"
+    fi
+    
+    gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" name "$NAME"
+    gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" command "$CMD"
+    gsettings set "${SCHEMA_BINDING}:${FOUND_PATH}" binding "$BINDING"
+done
+
+# 4. Write back (Sorted)
+FINAL_LIST="["
+FIRST=true
+for p in $(echo "${!ALL_PATHS[@]}" | tr ' ' '\n' | sort -V); do
+    if [ "$FIRST" = true ]; then FIRST=false; else FINAL_LIST+=", "; fi
+    FINAL_LIST+="'$p'"
+done
+FINAL_LIST+="]"
+
+gsettings set "$SCHEMA_KEYS" custom-keybindings "$FINAL_LIST"
+echo "GNOME shortcuts configured successfully!"

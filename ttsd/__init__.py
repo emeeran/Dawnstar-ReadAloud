@@ -20,6 +20,14 @@ Usage:
     client.speak("Hello world")
 """
 
+import os
+from pathlib import Path
+
+# Shared socket path — defined once, used by both daemon and IPC
+SOCKET_PATH = os.environ.get(
+    "XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"
+) + "/tts-daemon.sock"
+
 from .daemon import Command, DaemonState, Job, TTSDaemon
 from .ipc import IPCClient, UnixSocketServer
 
@@ -30,4 +38,5 @@ __all__ = [
     "Command",
     "UnixSocketServer",
     "IPCClient",
+    "SOCKET_PATH",
 ]

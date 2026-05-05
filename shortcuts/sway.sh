@@ -8,13 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
 CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
-CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
+CMD_SELECTION="$TTS_ROOT/speak_selection.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up Sway/Hyprland keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
+chmod +x "$CMD_SPEAK" "$CMD_SELECTION" "$CMD_STOP"
 
 # Detect which compositor is in use
 detect_compositor() {
@@ -57,14 +57,14 @@ setup_sway() {
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-bindsym Shift+Mod4+s exec CMD_SPEAK_PLACEHOLDER
-bindsym Shift+Mod4+c exec CMD_PAUSE_PLACEHOLDER
-bindsym Shift+Mod4+q exec CMD_STOP_PLACEHOLDER
+bindsym Ctrl+Alt+s exec CMD_SPEAK_PLACEHOLDER
+bindsym Ctrl+Alt+c exec CMD_SELECTION_PLACEHOLDER
+bindsym Ctrl+Alt+q exec CMD_STOP_PLACEHOLDER
 EOF
 
     # Replace placeholders with actual paths
     sed -i "s|CMD_SPEAK_PLACEHOLDER|$CMD_SPEAK|g" "$config_file"
-    sed -i "s|CMD_PAUSE_PLACEHOLDER|$CMD_PAUSE|g" "$config_file"
+    sed -i "s|CMD_SELECTION_PLACEHOLDER|$CMD_SELECTION|g" "$config_file"
     sed -i "s|CMD_STOP_PLACEHOLDER|$CMD_STOP|g" "$config_file"
 
     echo "  Added shortcuts to $config_file"
@@ -91,14 +91,14 @@ setup_hyprland() {
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-bind = SUPER SHIFT, s, exec, CMD_SPEAK_PLACEHOLDER
-bind = SUPER SHIFT, c, exec, CMD_PAUSE_PLACEHOLDER
-bind = SUPER SHIFT, q, exec, CMD_STOP_PLACEHOLDER
+bind = CTRL ALT, s, exec, CMD_SPEAK_PLACEHOLDER
+bind = CTRL ALT, c, exec, CMD_SELECTION_PLACEHOLDER
+bind = CTRL ALT, q, exec, CMD_STOP_PLACEHOLDER
 EOF
 
     # Replace placeholders with actual paths
     sed -i "s|CMD_SPEAK_PLACEHOLDER|$CMD_SPEAK|g" "$config_file"
-    sed -i "s|CMD_PAUSE_PLACEHOLDER|$CMD_PAUSE|g" "$config_file"
+    sed -i "s|CMD_SELECTION_PLACEHOLDER|$CMD_SELECTION|g" "$config_file"
     sed -i "s|CMD_STOP_PLACEHOLDER|$CMD_STOP|g" "$config_file"
 
     echo "  Added shortcuts to $config_file"
@@ -117,14 +117,14 @@ case "$COMPOSITOR" in
         echo "  Add these lines to your config:"
         echo ""
         echo "  For Sway:"
-        echo "    bindsym Shift+Mod4+s exec $CMD_SPEAK"
-        echo "    bindsym Shift+Mod4+c exec $CMD_PAUSE"
-        echo "    bindsym Shift+Mod4+q exec $CMD_STOP"
+        echo "    bindsym Ctrl+Alt+s exec $CMD_SPEAK"
+        echo "    bindsym Ctrl+Alt+c exec $CMD_SELECTION"
+        echo "    bindsym Ctrl+Alt+q exec $CMD_STOP"
         echo ""
         echo "  For Hyprland:"
-        echo "    bind = SUPER SHIFT, s, exec, $CMD_SPEAK"
-        echo "    bind = SUPER SHIFT, c, exec, $CMD_PAUSE"
-        echo "    bind = SUPER SHIFT, q, exec, $CMD_STOP"
+        echo "    bind = CTRL ALT, s, exec, $CMD_SPEAK"
+        echo "    bind = CTRL ALT, c, exec, $CMD_SELECTION"
+        echo "    bind = CTRL ALT, q, exec, $CMD_STOP"
         ;;
 esac
 

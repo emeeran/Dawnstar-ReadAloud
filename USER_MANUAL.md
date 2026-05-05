@@ -134,7 +134,7 @@ python3 configure.py
 ```
 
 This installs:
-- Keyboard shortcuts (Ctrl+Alt+S, Ctrl+Alt+Q)
+- Keyboard shortcuts (Ctrl+Alt+S, Ctrl+Alt+C, Ctrl+Alt+Q)
 - Desktop entry for application menu
 - Wrapper scripts in `~/.local/bin/`
 
@@ -160,10 +160,16 @@ This installs:
 ./tts mybook.epub
 ```
 
+### Read from Cursor
+
+1. Place your text cursor (caret) in any text field or editor
+2. Press `Ctrl+Alt+S`
+3. Listen as the app reads from your cursor position to the end
+
 ### Read Selected Text
 
 1. Highlight text in any application
-2. Press `Ctrl+Alt+S`
+2. Press `Ctrl+Alt+C`
 3. Listen to the speech
 
 ### Stop Speaking
@@ -416,20 +422,25 @@ Source: file
 
 | Shortcut | Action | Description |
 |----------|--------|-------------|
-| `Ctrl+Alt+S` | Speak Selection | Reads text from clipboard/selection |
+| `Ctrl+Alt+S` | Speak from Cursor | Reads from cursor position using accessibility APIs |
+| `Ctrl+Alt+C` | Speak Selection | Reads text from clipboard/selection |
 | `Ctrl+Alt+Q` | Stop Speaking | Stops current playback |
+
+### How Speak from Cursor Works
+
+This feature uses system accessibility APIs (like AT-SPI on Linux) to find the text container your cursor is currently in. It can extract the full text without needing you to select anything. If accessibility fails, it falls back to the clipboard.
 
 ### How Selection Works
 
 **X11 (Traditional):**
 1. Highlight text with mouse (primary selection) - **recommended**
 2. Or copy text with Ctrl+C (clipboard selection)
-3. Press `Ctrl+Alt+S`
+3. Press `Ctrl+Alt+C`
 4. The highlighted text is prioritized over copied text
 
 **Wayland:**
 1. Copy text with Ctrl+C
-2. Press `Ctrl+Alt+S`
+2. Press `Ctrl+Alt+C`
 
 ### Installing Shortcuts
 
@@ -450,10 +461,11 @@ If automatic setup fails:
 **GNOME:**
 1. Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts
 2. Click "Add Shortcut"
-3. Name: `Speak Selection`
-4. Command: `/path/to/tts/speak_selection.sh`
+3. Name: `Speak from Cursor`
+4. Command: `/home/em/.local/bin/tts-speak`
 5. Shortcut: Press `Ctrl+Alt+S`
-6. Repeat for `Stop Speaking` → `/path/to/tts/stop_speaking.sh` → `Ctrl+Alt+Q`
+6. Repeat for `Speak Selection` → `/home/em/.local/bin/tts-selection` → `Ctrl+Alt+C`
+7. Repeat for `Stop Speaking` → `/home/em/.local/bin/tts-stop` → `Ctrl+Alt+Q`
 
 ---
 
@@ -934,7 +946,8 @@ rm -rf /path/to/tts/
 │  --show-config             Display configuration             │
 ├─────────────────────────────────────────────────────────────┤
 │  KEYBOARD SHORTCUTS                                          │
-│  Ctrl+Alt+S                Speak selection                   │
+│  Ctrl+Alt+S                Speak from cursor                 │
+│  Ctrl+Alt+C                Speak selection                   │
 │  Ctrl+Alt+Q                Stop speaking                     │
 ├─────────────────────────────────────────────────────────────┤
 │  CONFIG FILE: ~/.config/tts/config.yaml                      │

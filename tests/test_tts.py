@@ -21,7 +21,7 @@ from app import (
     SPEED_MAP,
     CHUNK_SIZE,
 )
-from config import TTSAppConfig
+from app_config import TTSAppConfig
 
 
 class TestContentExtractor:
@@ -48,6 +48,28 @@ class TestContentExtractor:
         text = "  hello world  "
         result = ContentExtractor.clean_text(text)
         assert result == "hello world"
+
+    def test_clean_text_strips_markdown_headers(self):
+        """Test that Markdown headers are stripped."""
+        text = "# Header 1\n## Header 2\nContent"
+        result = ContentExtractor.clean_text(text)
+        assert "Header 1" in result
+        assert "Header 2" in result
+        assert "#" not in result
+
+    def test_clean_text_strips_markdown_links(self):
+        """Test that Markdown links are converted to text."""
+        text = "Check out [Gemini](https://gemini.google.com)"
+        result = ContentExtractor.clean_text(text)
+        assert "Gemini" in result
+        assert "https://gemini.google.com" not in result
+        assert "[" not in result
+
+    def test_clean_text_strips_markdown_emphasis(self):
+        """Test that bold and italic markers are removed."""
+        text = "**Bold** and *Italic* text"
+        result = ContentExtractor.clean_text(text)
+        assert result == "Bold and Italic text"
 
     def test_chunk_text_short_text(self):
         """Test that short text returns single chunk."""

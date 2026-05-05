@@ -1,20 +1,10 @@
-Source: dawnstar-readaloud
+Package: dawnstar-readaloud
+Version: 1.1.0
+Architecture: all
+Maintainer: Dawnstar ReadAloud Contributors <dawnstar@example.com>
 Section: sound
 Priority: optional
-Maintainer: Dawnstar ReadAloud Contributors <dawnstar@example.com>
-Build-Depends: debhelper-compat (= 13), python3 (>= 3.12), python3-pip, python3-venv
-Standards-Version: 4.6.2
-Homepage: https://github.com/example/dawnstar-readaloud
-Vcs-Browser: https://github.com/example/dawnstar-readaloud
-Vcs-Git: https://github.com/example/dawnstar-readaloud.git
-
-Package: dawnstar-readaloud
-Architecture: all
-Depends:
- ${python3:Depends},
- ${misc:Depends},
- python3 (>= 3.12),
- python3-edge-tts,
+Depends: python3 (>= 3.12),
  python3-gtts,
  python3-bs4,
  python3-yaml,
@@ -25,11 +15,10 @@ Depends:
  xclip | wl-clipboard,
  poppler-utils,
  espeak-ng | espeak
-Recommends:
- libnotify-bin,
+Recommends: libnotify-bin,
  pulseaudio-utils
-Suggests:
- vorbis-tools
+Suggests: vorbis-tools
+Homepage: https://github.com/example/dawnstar-readaloud
 Description: Text-to-Speech application with neural voices
  Dawnstar ReadAloud is a lightweight Text-to-Speech (TTS) command-line
  application that reads text from files, PDFs, EPUBs, URLs, or direct input.
@@ -42,3 +31,6 @@ Description: Text-to-Speech application with neural voices
   - Document processing: skips front matter in EPUBs/PDFs
   - Optional daemon mode for low-latency speech synthesis
   - Desktop notifications and progress indicators
+ .
+ For best quality neural voices, install edge-tts via pip:
+   pip3 install --user edge-tts

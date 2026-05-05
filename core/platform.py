@@ -7,6 +7,7 @@ This module provides:
 - Desktop environment detection (GNOME, KDE, XFCE, etc.)
 - Cross-platform clipboard access
 - TTS engine availability detection
+- Screen reader detection for accessibility
 """
 
 import importlib.util
@@ -113,6 +114,114 @@ def detect_desktop_environment() -> DesktopEnvironment:
         pass
 
     return DesktopEnvironment.UNKNOWN
+
+
+def is_screen_reader_active() -> bool:
+    """Detect if a screen reader is currently running.
+
+    This function checks for common screen reader processes:
+    - Orca (Linux GNOME)
+    - NVDA, JAWS (Windows)
+    - VoiceOver (macOS)
+
+    Returns:
+        True if a screen reader is detected, False otherwise.
+
+    Example:
+        >>> if is_screen_reader_active():
+        ...     # Use plain text output instead of ANSI codes
+        ...     print("Speaking...")
+        ... else:
+        ...     print("\\033[48;5;238mSpeaking...\\033[0m")
+    """
+    os_name = detect_os()
+
+    # Screen reader processes by platform
+    screen_readers = {
+        "linux": ["orca"],
+        "windows": ["nvda", "jaws"],
+        "macos": ["voiceover"],
+    }
+
+    processes_to_check = screen_readers.get(os_name, [])
+    if not processes_to_check:
+        return False
+
+    try:
+        if os_name == "macos":
+            # macOS: Check VoiceOver status via AppleScript
+            try:
+                result = subprocess.run(
+                    ["osascript", "-e", "tell application \"System Events\" to get voiceover enabled"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                return "true" in result.stdout.lower()
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        elif os_name == "windows":
+            # Windows: Check for screen reader processes
+            try:
+                result = subprocess.run(
+                    ["tasklist", "/FO", "CSV"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                output = result.stdout.lower()
+                return any(sr in output for sr in processes_to_check)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+        else:
+            # Linux: Check for Orca process
+            result = subprocess.run(
+                ["ps", "-aux"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            output = result.stdout.lower()
+            return any(sr in output for sr in processes_to_check)
+
+    except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        pass
+
+    return False
+
+
+def supports_ansi_colors() -> bool:
+    """Detect if terminal supports ANSI color codes.
+
+    Returns:
+        True if ANSI colors are supported, False otherwise.
+
+    Note:
+        Returns False if a screen reader is detected to avoid
+        confusing output for accessibility users.
+    """
+    # Don't use ANSI colors if screen reader is active
+    if is_screen_reader_active():
+        return False
+
+    # Check if stdout is a terminal
+    if not sys.stdout.isatty():
+        return False
+
+    # Check for NO_COLOR environment variable
+    if os.getenv("NO_COLOR"):
+        return False
+
+    # Check for forced color mode
+    if os.getenv("FORCE_COLOR") or os.getenv("CLICOLOR_FORCE"):
+        return True
+
+    # Windows check
+    if detect_os() == "windows":
+        # Modern Windows 10 supports ANSI, but be conservative
+        return False
+
+    return True
 
 
 def get_clipboard_text() -> str | None:
@@ -298,4 +407,6 @@ __all__ = [
     "detect_desktop_environment",
     "get_clipboard_text",
     "detect_available_engines",
+    "is_screen_reader_active",
+    "supports_ansi_colors",
 ]

@@ -33,7 +33,8 @@ python3 configure.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+S` | Speak selected/highlighted text (no scrolling) |
+| `Ctrl+Alt+S` | Speak from cursor (no selection required) |
+| `Ctrl+Alt+C` | Speak selected/highlighted text |
 | `Ctrl+Alt+Q` | Stop speaking |
 
 ## Basic Usage

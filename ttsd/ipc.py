@@ -3,6 +3,11 @@ TTS Daemon IPC Module
 
 Unix socket-based inter-process communication with JSON protocol.
 Provides fast local communication between clients and the TTS daemon.
+
+Security features:
+- Restrictive socket permissions (owner-only access)
+- Maximum message size validation (DoS prevention)
+- Input length limits on text fields
 """
 
 import asyncio
@@ -12,6 +17,14 @@ import socket
 from pathlib import Path
 from typing import Any
 
+from . import SOCKET_PATH as _SHARED_SOCKET_PATH
+
+# Security: Maximum text length for IPC requests (100KB)
+MAX_IPC_TEXT_LENGTH = 100 * 1024
+
+# Security: Maximum message size for JSON requests (1MB)
+MAX_MESSAGE_SIZE = 1024 * 1024
+
 
 class UnixSocketServer:
     """
@@ -20,11 +33,13 @@ class UnixSocketServer:
     Protocol: JSON messages terminated by newline
     Request: {"cmd": "speak", "text": "...", "options": {...}}
     Response: {"status": "ok", "job_id": 1} or {"status": "error", "message": "..."}
+
+    Security:
+        - Socket file created with 0600 permissions (owner-only)
+        - Message size limited to prevent DoS attacks
     """
 
-    SOCKET_PATH = os.environ.get(
-        "XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"
-    ) + "/tts-daemon.sock"
+    SOCKET_PATH = _SHARED_SOCKET_PATH
 
     BUFFER_SIZE = 65536
 
@@ -55,27 +70,41 @@ class UnixSocketServer:
         # Ensure directory exists
         self.socket_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self._loop = asyncio.get_running_loop()
-        self._shutdown_event = asyncio.Event()
-        self.server = await asyncio.start_unix_server(
-            self._handle_client,
-            path=str(self.socket_path),
-            limit=self.BUFFER_SIZE,
-        )
+        # SECURITY: Set restrictive umask before creating socket
+        # This ensures the socket file is created with 0600 permissions
+        old_umask = os.umask(0o077)
+        try:
+            self._loop = asyncio.get_running_loop()
+            self._shutdown_event = asyncio.Event()
+            self.server = await asyncio.start_unix_server(
+                self._handle_client,
+                path=str(self.socket_path),
+                limit=self.BUFFER_SIZE,
+            )
 
-        self._running = True
-        await self._shutdown_event.wait()
+            # SECURITY: Explicitly set socket permissions after creation
+            # (umask may not be sufficient on all systems)
+            try:
+                os.chmod(self.socket_path, 0o600)
+            except OSError:
+                pass  # Best effort - umask should have handled it
 
-        if self.server is not None:
-            self.server.close()
-            await self.server.wait_closed()
+            self._running = True
+            await self._shutdown_event.wait()
 
-        if self.socket_path.exists():
-            self.socket_path.unlink()
+            if self.server is not None:
+                self.server.close()
+                await self.server.wait_closed()
 
-        self.server = None
-        self._loop = None
-        self._shutdown_event = None
+            if self.socket_path.exists():
+                self.socket_path.unlink()
+
+            self.server = None
+            self._loop = None
+            self._shutdown_event = None
+        finally:
+            # Restore original umask
+            os.umask(old_umask)
 
     def stop(self) -> None:
         """Stop the IPC server."""
@@ -93,8 +122,19 @@ class UnixSocketServer:
         """Handle a single client connection."""
         try:
             while self._running:
+                # SECURITY: Read with size limit to prevent DoS
                 data = await reader.readline()
                 if not data:
+                    break
+
+                # SECURITY: Check message size before processing
+                if len(data) > MAX_MESSAGE_SIZE:
+                    response = {
+                        "status": "error",
+                        "message": f"Message too large (max {MAX_MESSAGE_SIZE} bytes)"
+                    }
+                    writer.write((json.dumps(response) + "\n").encode("utf-8"))
+                    await writer.drain()
                     break
 
                 line = data.decode("utf-8", errors="ignore").strip()
@@ -124,8 +164,15 @@ class UnixSocketServer:
                 case "speak":
                     text = request.get("text", "")
                     options = request.get("options", {})
+
+                    # SECURITY: Validate text length
                     if not text:
                         return {"status": "error", "message": "No text provided"}
+                    if len(text) > MAX_IPC_TEXT_LENGTH:
+                        return {
+                            "status": "error",
+                            "message": f"Text too long (max {MAX_IPC_TEXT_LENGTH} bytes)"
+                        }
 
                     job_id = self.daemon.submit_job(text, options)
                     return {"status": "ok", "job_id": job_id}
@@ -169,8 +216,12 @@ class UnixSocketServer:
                 case _:
                     return {"status": "error", "message": f"Unknown command: {cmd}"}
 
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, KeyError) as e:
             return {"status": "error", "message": str(e)}
+        except Exception as e:
+            # Catch-all for unexpected errors — use generic message
+            # to avoid leaking internal details to IPC clients
+            return {"status": "error", "message": "Internal error"}
 
 
 class IPCClient:
@@ -197,14 +248,27 @@ class IPCClient:
             print("Daemon is running")
     """
 
-    SOCKET_PATH = UnixSocketServer.SOCKET_PATH
+    SOCKET_PATH = _SHARED_SOCKET_PATH
     TIMEOUT = 5.0
 
     def __init__(self, socket_path: str | None = None):
+        """
+        Initialize IPC client.
+
+        Args:
+            socket_path: Path to Unix socket (default: auto-detect)
+        """
         self.socket_path = socket_path or self.SOCKET_PATH
 
     def _send_command(self, command: dict[str, Any]) -> dict[str, Any]:
-        """Send a command to the daemon and return response."""
+        """Send a command to the daemon and return response.
+
+        Args:
+            command: Command dictionary with 'cmd' key.
+
+        Returns:
+            Response dictionary with 'status' key.
+        """
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(self.TIMEOUT)
 
@@ -227,40 +291,83 @@ class IPCClient:
             sock.close()
 
     def speak(self, text: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Queue text for speaking."""
+        """Queue text for speaking.
+
+        Args:
+            text: Text to speak.
+            options: Optional TTS options (language, speed, etc.).
+
+        Returns:
+            Response with job_id on success, error on failure.
+        """
         return self._send_command(
             {"cmd": "speak", "text": text, "options": options or {}}
         )
 
     def speak_selection(self, options: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Speak clipboard content."""
+        """Speak clipboard content.
+
+        Args:
+            options: Optional TTS options.
+
+        Returns:
+            Response with job_id on success, error on failure.
+        """
         return self._send_command({"cmd": "speak-selection", "options": options or {}})
 
     def stop(self) -> dict[str, Any]:
-        """Stop playback and clear queue."""
+        """Stop playback and clear queue.
+
+        Returns:
+            Response indicating success or failure.
+        """
         return self._send_command({"cmd": "stop"})
 
     def pause(self) -> dict[str, Any]:
-        """Pause playback."""
+        """Pause playback.
+
+        Returns:
+            Response indicating success or failure.
+        """
         return self._send_command({"cmd": "pause"})
 
     def resume(self) -> dict[str, Any]:
-        """Resume playback."""
+        """Resume playback.
+
+        Returns:
+            Response indicating success or failure.
+        """
         return self._send_command({"cmd": "resume"})
 
     def status(self) -> dict[str, Any]:
-        """Get daemon status."""
+        """Get daemon status.
+
+        Returns:
+            Dictionary with state, queue_size, and current_job info.
+        """
         return self._send_command({"cmd": "status"})
 
     def get_voices(self) -> dict[str, Any]:
-        """Get available voices."""
+        """Get available voices.
+
+        Returns:
+            List of available voice configurations.
+        """
         return self._send_command({"cmd": "get-voices"})
 
     def is_running(self) -> bool:
-        """Check if daemon is running."""
+        """Check if daemon is running.
+
+        Returns:
+            True if daemon is responding, False otherwise.
+        """
         result = self._send_command({"cmd": "status"})
         return result.get("status") == "ok"
 
     def shutdown(self) -> dict[str, Any]:
-        """Shutdown the daemon."""
+        """Shutdown the daemon.
+
+        Returns:
+            Response indicating shutdown status.
+        """
         return self._send_command({"cmd": "shutdown"})

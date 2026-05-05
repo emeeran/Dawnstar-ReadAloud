@@ -66,16 +66,27 @@ def is_front_matter(filename: str, title: str = "") -> bool:
 
 def _is_chapter_start(text: str) -> bool:
     """Check if text starts with a chapter-like heading."""
-    lines = text.splitlines()
-    # Check first few lines for a chapter heading
-    for line in lines[:10]:
+    return _find_chapter_line(text.splitlines()) >= 0
+
+
+def _find_chapter_line(lines: list[str], max_lines: int = 100) -> int:
+    """Find the first line that matches a chapter heading pattern.
+
+    Args:
+        lines: Lines of text to search.
+        max_lines: Maximum number of lines to check.
+
+    Returns:
+        Index of the first chapter-heading line, or -1 if not found.
+    """
+    for index, line in enumerate(lines[:max_lines]):
         line_stripped = line.strip().lower()
         if not line_stripped:
             continue
         for pattern in _COMPILED_CHAPTER:
             if pattern.match(line_stripped):
-                return True
-    return False
+                return index
+    return -1
 
 
 def _extract_title(soup: object) -> str:
@@ -136,12 +147,9 @@ def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
 
 
 def _find_content_start(lines: list[str]) -> int:
-    for index, line in enumerate(lines[:100]):
-        line_stripped = line.strip().lower()
-        for pattern in _COMPILED_CHAPTER:
-            if pattern.match(line_stripped):
-                return index
-    return 0
+    """Find the first line that looks like chapter content."""
+    result = _find_chapter_line(lines, max_lines=100)
+    return result if result >= 0 else 0
 
 
 def extract_epub(path: str, config: TTSConfig) -> str | None:

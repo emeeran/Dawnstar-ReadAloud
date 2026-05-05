@@ -10,11 +10,40 @@ _RE_URL = re.compile(r"http[s]?://\S+")
 _RE_EMAIL = re.compile(r"\S+@\S+")
 _RE_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
+# Markdown stripping patterns
+_RE_MD_HEADER = re.compile(r"^#+\s+", re.MULTILINE)
+_RE_MD_BOLD_ITALIC = re.compile(r"[*_]{1,3}")
+_RE_MD_LINK = re.compile(r"\[([^\]]+)\]\([^\)]*\)")
+_RE_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^\)]*\)")
+_RE_MD_CODE_BLOCK = re.compile(r"```[\s\S]*?```")
+_RE_MD_INLINE_CODE = re.compile(r"`([^`]+)`")
+_RE_MD_LIST_MARKER = re.compile(r"^\s*[-*+]\s+", re.MULTILINE)
+_RE_MD_NUM_LIST_MARKER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
+
+
+def strip_markdown(text: str) -> str:
+    """Remove common Markdown symbols while preserving the text content."""
+    # Order matters: strip blocks before inline elements
+    text = _RE_MD_CODE_BLOCK.sub("", text)
+    text = _RE_MD_IMAGE.sub("", text)
+    text = _RE_MD_LINK.sub(r"\1", text)
+    text = _RE_MD_INLINE_CODE.sub(r"\1", text)
+    text = _RE_MD_HEADER.sub("", text)
+    text = _RE_MD_BOLD_ITALIC.sub("", text)
+    text = _RE_MD_LIST_MARKER.sub("", text)
+    text = _RE_MD_NUM_LIST_MARKER.sub("", text)
+    return text
+
 
 def clean_text(text: str) -> str:
-    """Remove URLs/emails and normalize edge whitespace."""
+    """Remove Markdown symbols and URLs/emails, then normalize edge whitespace."""
+    # Strip Markdown symbols FIRST (to handle links [text](url) properly)
+    text = strip_markdown(text)
+
+    # Then strip "naked" URLs and Emails
     text = _RE_URL.sub("", text)
     text = _RE_EMAIL.sub("", text)
+
     return text.strip()
 
 

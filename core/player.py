@@ -37,6 +37,7 @@ class AudioPlayer:
     @classmethod
     def _play_with_temp_file(cls, cmd: list[str], audio_data: bytes) -> bool:
         with tempfile.NamedTemporaryFile(suffix=TEMP_FILE_SUFFIX, delete=False) as temp_file:
+            os.chmod(temp_file.name, 0o600)
             temp_file.write(audio_data)
             temp_file.flush()
             temp_path = temp_file.name

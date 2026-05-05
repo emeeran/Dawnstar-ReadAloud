@@ -8,13 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
 CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
-CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
+CMD_SELECTION="$TTS_ROOT/speak_selection.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up KDE Plasma keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
+chmod +x "$CMD_SPEAK" "$CMD_SELECTION" "$CMD_STOP"
 
 # KDE uses kglobalaccel5 config file
 # The config is in ~/.config/kglobalaccel
@@ -55,21 +55,21 @@ EOF
 # This creates entries in kglobalaccel that can be edited in System Settings
 # Keybindings: Shift+Meta (Meta is KDE's term for Super/Windows key)
 
-# Speak Selection shortcut
-kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "TTS Speak Selection" \
-    "TTS Speak Selection,,($CMD_SPEAK),Shift+Meta+S,Shift+Meta+S,TTS Speak Selection"
+# Speak From Cursor shortcut
+kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "TTS Speak From Cursor" \
+    "TTS Speak From Cursor,,($CMD_SPEAK),Ctrl+Alt+S,Ctrl+Alt+S,TTS Speak From Cursor"
 
-# Pause Speaking shortcut
-kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "TTS Pause Speaking" \
-    "TTS Pause Speaking,,($CMD_PAUSE),Shift+Meta+C,Shift+Meta+C,TTS Pause Speaking"
+# Speak Selected shortcut
+kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "TTS Speak Selected" \
+    "TTS Speak Selected,,($CMD_SELECTION),Ctrl+Alt+C,Ctrl+Alt+C,TTS Speak Selected"
 
 # Stop Speaking shortcut
 kwriteconfig5 --file kglobalshortcutsrc --group kwin --key "TTS Stop Speaking" \
-    "TTS Stop Speaking,,($CMD_STOP),Shift+Meta+Q,Shift+Meta+Q,TTS Stop Speaking"
+    "TTS Stop Speaking,,($CMD_STOP),Ctrl+Alt+Q,Ctrl+Alt+Q,TTS Stop Speaking"
 
-echo "  Configured 'Speak Selection' to Shift+Meta+S"
-echo "  Configured 'Pause Speaking' to Shift+Meta+C"
-echo "  Configured 'Stop Speaking' to Shift+Meta+Q"
+echo "  Configured 'Speak From Cursor' to Ctrl+Alt+S"
+echo "  Configured 'Speak Selected' to Ctrl+Alt+C"
+echo "  Configured 'Stop Speaking' to Ctrl+Alt+Q"
 echo ""
 echo "Note: You may need to:"
 echo "  1. Log out and back in, or"

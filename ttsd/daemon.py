@@ -32,6 +32,8 @@ from core import (
     TTSEngine,
 )
 
+from . import SOCKET_PATH
+
 
 class DaemonState(Enum):
     """Daemon operational states."""
@@ -91,9 +93,10 @@ class TTSDaemon:
         daemon.stop()
     """
 
-    SOCKET_PATH = os.environ.get(
-        "XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}"
-    ) + "/tts-daemon.sock"
+    SOCKET_PATH = SOCKET_PATH
+
+    # Maximum number of completed jobs to keep in history
+    MAX_JOB_HISTORY = 100
 
     def __init__(
         self,
@@ -210,11 +213,16 @@ class TTSDaemon:
         ]
 
     def _kill_playback(self) -> None:
-        """Kill any active audio playback."""
+        """Kill any active audio playback.
+
+        Uses -x flag for exact process name matching to avoid killing
+        unrelated processes that happen to contain the player name in
+        their command line.
+        """
         for player in ["mpg123", "cvlc", "ffplay", "aplay", "paplay"]:
             with contextlib.suppress(OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
                 subprocess.run(
-                    ["pkill", "-f", player],
+                    ["pkill", "-x", player],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     timeout=2,
@@ -286,6 +294,7 @@ class TTSDaemon:
             if self.on_job_complete:
                 self.on_job_complete(job)
             self.current_job = None
+            self._cleanup_jobs()
 
     def run(self) -> None:
         """Main daemon loop (blocking)."""
@@ -335,6 +344,18 @@ class TTSDaemon:
                 # Log unexpected errors but keep daemon running
                 if self.config.verbose:
                     print(f"Unexpected daemon error: {type(e).__name__}: {e}")
+
+    def _cleanup_jobs(self) -> None:
+        """Remove old completed jobs to prevent unbounded memory growth."""
+        completed_ids = [
+            jid for jid, job in self.jobs.items()
+            if job.status in ("completed", "cancelled")
+        ]
+        if len(completed_ids) > self.MAX_JOB_HISTORY:
+            # Remove oldest completed jobs beyond the limit
+            completed_ids.sort()
+            for jid in completed_ids[:-self.MAX_JOB_HISTORY]:
+                del self.jobs[jid]
 
     def shutdown(self) -> None:
         """Gracefully shutdown the daemon."""

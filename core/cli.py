@@ -5,13 +5,16 @@ argparse CLI for the TTS application.
 """
 
 import argparse
+import time
+from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
 
-from config import TTSAppConfig, generate_sample_config
+from app_config import TTSAppConfig, generate_sample_config
 
 from .config import TTSConfig
 from .constants import ANSI_GREY_BG, ANSI_RESET, CACHE_DIR
 from .engine import TTSEngine
+from .platform import supports_ansi_colors
 from .exceptions import ExtractionError
 from .extractor import ContentExtractor
 from .logger import Logger
@@ -26,6 +29,104 @@ class SpeedChoice(StrEnum):
     SLOW = "slow"
     NORMAL = "normal"
     FAST = "fast"
+
+
+class PlaybackController:
+    """Handles chunk processing, pre-fetching, and progress display.
+
+    Extracted from CLI to separate playback orchestration from
+    argument parsing and command dispatch.
+    """
+
+    def __init__(
+        self,
+        tts_config: TTSConfig,
+        show_progress: bool,
+        use_ansi_colors: bool,
+        sentence_file: str | None = None,
+    ) -> None:
+        self.tts_config = tts_config
+        self.show_progress = show_progress
+        self.use_ansi_colors = use_ansi_colors
+        self.sentence_file = sentence_file
+
+    def process_chunks(
+        self,
+        chunks: list[str],
+        tts: TTSEngine,
+        show_eta: bool = True,
+    ) -> bool:
+        """Process audio chunks sequentially with pre-fetching for low latency.
+
+        Args:
+            chunks: List of text chunks to speak.
+            tts: TTS engine instance.
+            show_eta: Whether to show ETA for long documents.
+
+        Returns:
+            True if all chunks processed successfully, False on failure.
+        """
+        start_time = time.time()
+        chunks_processed = 0
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future_audio = executor.submit(tts.generate, chunks[0])
+
+            for index, chunk in enumerate(chunks):
+                audio = future_audio.result()
+                chunks_processed += 1
+
+                if index + 1 < len(chunks):
+                    future_audio = executor.submit(tts.generate, chunks[index + 1])
+                else:
+                    future_audio = None
+
+                self._write_current_sentence(chunk)
+                self._display_progress(chunk, chunks_processed, len(chunks), start_time, show_eta)
+
+                if audio and not AudioPlayer.play(audio, self.tts_config):
+                    Logger.error("Playback failed")
+                    return False
+
+        return True
+
+    def _display_progress(
+        self,
+        chunk: str,
+        processed: int,
+        total: int,
+        start_time: float,
+        show_eta: bool,
+    ) -> None:
+        """Display chunk progress with optional ETA."""
+        if not self.show_progress:
+            return
+
+        eta_msg = ""
+        if show_eta and total > 3:
+            elapsed = time.time() - start_time
+            avg_time = elapsed / processed
+            remaining = total - processed
+            eta_seconds = avg_time * remaining
+
+            if eta_seconds > 10:
+                eta_msg = f" [ETA: {eta_seconds / 60:.1f}m]"
+
+        if self.use_ansi_colors:
+            print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}{eta_msg}", flush=True)
+        else:
+            print(f"{chunk}{eta_msg}", flush=True)
+
+    def _write_current_sentence(self, sentence: str) -> None:
+        """Write current sentence to file for cursor tracking."""
+        if not self.sentence_file:
+            return
+        try:
+            with open(self.sentence_file, "w") as f:
+                f.write(sentence)
+        except OSError:
+            if self.tts_config.verbose:
+                Logger.log("Failed to write sentence file", self.tts_config)
 
 
 class CLI:
@@ -56,6 +157,14 @@ class CLI:
 
         self.show_progress = self.app_config.progress
         self.show_notifications = self.app_config.notifications
+        self.use_ansi_colors = supports_ansi_colors()
+
+        self.playback = PlaybackController(
+            tts_config=self.tts_config,
+            show_progress=self.show_progress,
+            use_ansi_colors=self.use_ansi_colors,
+            sentence_file=self.args.sentence_file,
+        )
 
         CacheManager.initialize(self.app_config.cache_max_size_mb)
         NotificationManager.set_enabled(self.show_notifications)
@@ -77,6 +186,7 @@ Examples:
   tts https://example.com        Read a webpage
   tts -l en-uk -s fast text      Use UK English at fast speed
   tts --clear-cache              Clear audio cache
+  tts --list-voices              List all available Edge TTS voices
             """,
         )
         parser.add_argument(
@@ -123,6 +233,11 @@ Examples:
             "--list-engines",
             action="store_true",
             help="List available TTS engines",
+        )
+        parser.add_argument(
+            "--list-voices",
+            action="store_true",
+            help="List all available Edge TTS voices",
         )
         parser.add_argument(
             "--get-clipboard",
@@ -180,6 +295,42 @@ Examples:
             status = "ok" if available else "not available"
             print(f"  {name}: {status}")
         return 0
+
+    def handle_list_voices(self) -> int:
+        """List all available Edge TTS voices.
+
+        Returns:
+            Exit code (0 on success, 1 if edge-tts not installed).
+        """
+        try:
+            import edge_tts
+            import asyncio
+
+            voices = asyncio.run(edge_tts.list_voices())
+            supported_langs = {"en-US", "en-GB", "ta-IN"}
+
+            print("Available Edge TTS Voices:")
+            print("-" * 70)
+
+            for voice in sorted(voices, key=lambda v: v["Locale"]):
+                locale = voice["Locale"]
+                name = voice["ShortName"]
+                gender = voice["Gender"]
+
+                marker = "✓" if locale in supported_langs else " "
+                print(f"  {marker} {name:<35} ({locale}) [{gender}]")
+
+            print("-" * 70)
+            print("✓ = Currently supported language")
+
+            return 0
+
+        except ImportError:
+            print("edge-tts not installed. Install with: pip install edge-tts")
+            return 1
+        except Exception as e:
+            print(f"Error fetching voices: {e}")
+            return 1
 
     def handle_clear_cache(self) -> int:
         """Clear the audio cache.
@@ -246,14 +397,10 @@ Examples:
             Logger.error(f"Text processing error: {e}")
             return False
 
-        for chunk in chunks:
-            if self.show_progress:
-                print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
-            audio = tts.generate(chunk)
-            if audio and not AudioPlayer.play(audio, self.tts_config):
-                Logger.error("Playback failed")
-                return False
-        return True
+        if not chunks:
+            return True
+
+        return self.playback.process_chunks(chunks, tts, show_eta=False)
 
     def run(self) -> int:
         """Run the CLI with parsed arguments.
@@ -286,6 +433,9 @@ Examples:
         if self.args.list_engines:
             return self.handle_list_engines()
 
+        if self.args.list_voices:
+            return self.handle_list_voices()
+
         if self.args.clear_cache:
             return self.handle_clear_cache()
 
@@ -304,19 +454,6 @@ Examples:
         print()
         for key, value in self.app_config.to_dict().items():
             print(f"  {key}: {value}")
-
-    def _write_current_sentence(self, sentence: str) -> None:
-        """Write current sentence to file if --sentence-file was specified.
-
-        Args:
-            sentence: The sentence about to be spoken.
-        """
-        if hasattr(self.args, 'sentence_file') and self.args.sentence_file:
-            try:
-                with open(self.args.sentence_file, 'w') as f:
-                    f.write(sentence)
-            except OSError:
-                pass  # Silently ignore file write errors
 
     def run_with_source(self) -> int:
         """Run with text source (file, URL, or direct text).
@@ -342,22 +479,16 @@ Examples:
         Logger.log(f"Speaking {len(chunks)} chunks...", self.tts_config)
 
         if len(chunks) > 1:
-            NotificationManager.notify("TTS", f"Speaking {len(chunks)} segments...", timeout=2000)
+            NotificationManager.notify(
+                "TTS", f"Speaking {len(chunks)} segments...", timeout=2000
+            )
 
         tts = TTSEngine(self.tts_config)
-        for _index, chunk in enumerate(chunks, 1):
-            # Write current sentence to file for cursor tracking
-            self._write_current_sentence(chunk)
+        success = self.playback.process_chunks(chunks, tts, show_eta=True)
 
-            if self.show_progress:
-                # Highlight current sentence with grey background
-                print(f"{ANSI_GREY_BG}{chunk}{ANSI_RESET}", flush=True)
-
-            audio = tts.generate(chunk)
-            if audio and not AudioPlayer.play(audio, self.tts_config):
-                Logger.error("Playback failed")
-                NotificationManager.notify("TTS", "Playback failed")
-                return 1
+        if not success:
+            NotificationManager.notify("TTS", "Playback failed")
+            return 1
 
         if len(chunks) > 1:
             NotificationManager.notify("TTS", "Finished speaking", timeout=1500)

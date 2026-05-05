@@ -81,6 +81,11 @@ class CacheManager:
         }
 
     @classmethod
+    def enforce_limit(cls) -> None:
+        """Public wrapper to enforce cache size limit after writes."""
+        cls._enforce_limit()
+
+    @classmethod
     def _enforce_limit(cls) -> None:
         """Remove oldest files if cache exceeds size limit."""
         if not CACHE_DIR.exists():

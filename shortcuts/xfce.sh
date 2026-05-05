@@ -8,13 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_ROOT="$(dirname "$SCRIPT_DIR")"
 
 CMD_SPEAK="$TTS_ROOT/speak_from_cursor.sh"
-CMD_PAUSE="$TTS_ROOT/pause_speaking.sh"
+CMD_SELECTION="$TTS_ROOT/speak_selection.sh"
 CMD_STOP="$TTS_ROOT/stop_speaking.sh"
 
 echo "Setting up XFCE keyboard shortcuts..."
 
 # Ensure scripts are executable
-chmod +x "$CMD_SPEAK" "$CMD_PAUSE" "$CMD_STOP"
+chmod +x "$CMD_SPEAK" "$CMD_SELECTION" "$CMD_STOP"
 
 # Check if xfconf-query is available
 if ! command -v xfconf-query &> /dev/null; then
@@ -64,17 +64,17 @@ add_shortcut() {
     echo "  Added '$name' at slot $slot ($xfce_shortcut)"
 }
 
-# Add Speak Selection shortcut (Shift+Meta+S)
+# Add Speak From Cursor shortcut (Ctrl+Alt+S)
 SPEAK_SLOT=$NEXT_SLOT
-add_shortcut "$SPEAK_SLOT" "Speak Selection" "$CMD_SPEAK" "Shift+Meta+s"
+add_shortcut "$SPEAK_SLOT" "Speak From Cursor" "$CMD_SPEAK" "Ctrl+Alt+s"
 
-# Add Pause Speaking shortcut (Shift+Meta+C)
-PAUSE_SLOT=$((NEXT_SLOT + 1))
-add_shortcut "$PAUSE_SLOT" "Pause Speaking" "$CMD_PAUSE" "Shift+Meta+c"
+# Add Speak Selected shortcut (Ctrl+Alt+C)
+SELECTION_SLOT=$((NEXT_SLOT + 1))
+add_shortcut "$SELECTION_SLOT" "Speak Selected" "$CMD_SELECTION" "Ctrl+Alt+c"
 
-# Add Stop Speaking shortcut (Shift+Meta+Q)
+# Add Stop Speaking shortcut (Ctrl+Alt+Q)
 STOP_SLOT=$((NEXT_SLOT + 2))
-add_shortcut "$STOP_SLOT" "Stop Speaking" "$CMD_STOP" "Shift+Meta+q"
+add_shortcut "$STOP_SLOT" "Stop Speaking" "$CMD_STOP" "Ctrl+Alt+q"
 
 # Note: In XFCE, you may also need to set the actual key binding
 # This is typically done through the keyboard settings GUI
@@ -88,5 +88,5 @@ echo "  Settings > Keyboard > Application Shortcuts"
 echo ""
 echo "Or run these commands to bind the actual keys:"
 echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$SPEAK_SLOT' -t string -s '$CMD_SPEAK'"
-echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$PAUSE_SLOT' -t string -s '$CMD_PAUSE'"
+echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$SELECTION_SLOT' -t string -s '$CMD_SELECTION'"
 echo "  xfconf-query -c xfce4-keyboard-shortcuts -p '/commands/custom/$STOP_SLOT' -t string -s '$CMD_STOP'"
