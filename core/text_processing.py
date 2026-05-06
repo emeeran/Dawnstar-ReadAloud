@@ -9,6 +9,8 @@ __all__ = ["clean_text", "chunk_text"]
 _RE_URL = re.compile(r"http[s]?://\S+")
 _RE_EMAIL = re.compile(r"\S+@\S+")
 _RE_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# Match newlines and multiple spaces
+_RE_WHITESPACE = re.compile(r"\s+")
 
 # Markdown stripping patterns
 _RE_MD_HEADER = re.compile(r"^#+\s+", re.MULTILINE)
@@ -36,13 +38,20 @@ def strip_markdown(text: str) -> str:
 
 
 def clean_text(text: str) -> str:
-    """Remove Markdown symbols and URLs/emails, then normalize edge whitespace."""
+    """Remove Markdown symbols, URLs/emails, and normalize whitespace.
+    
+    Normalizes all whitespace (newlines, multiple spaces) to single spaces.
+    This ensures smooth TTS playback without breaks from PDF line extraction.
+    """
     # Strip Markdown symbols FIRST (to handle links [text](url) properly)
     text = strip_markdown(text)
 
     # Then strip "naked" URLs and Emails
     text = _RE_URL.sub("", text)
     text = _RE_EMAIL.sub("", text)
+    
+    # Normalize all whitespace (newlines, tabs, multiple spaces) to single spaces
+    text = _RE_WHITESPACE.sub(" ", text)
 
     return text.strip()
 
