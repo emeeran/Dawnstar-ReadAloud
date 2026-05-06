@@ -8,8 +8,9 @@ A lightweight, neural-network-based Text-to-Speech application for Linux with gl
 - **Smart Caching** — Instant replay of previously spoken text with LRU eviction
 - **Global Shortcuts** — Works in any application: cursor, document, selection, stop
 - **Source Detection** — Automatically detects the active window's file or URL
-- **Multiple Input Sources** — Files, PDFs, EPUBs, URLs, clipboard, stdin
+- **Multiple Input Sources** — Files, PDFs, EPUBs, URLs, clipboard, stdin, Markdown
 - **Smart Content Extraction** — Skips ads/front matter, reads main content
+- **Dynamic Web Support** — Extracts article text from JavaScript-rendered pages via JSON-LD
 - **Sentence Highlighting** — Visual notification shows current sentence being spoken
 - **Multi-Language** — US English, UK English, and Tamil
 - **Daemon Mode** — Low-latency background service for frequent use
@@ -43,13 +44,25 @@ python3 configure.py
 
 ```bash
 ./tts "text to speak"           # Direct text
-./tts document.txt              # Read file
+./tts document.txt              # Read text file
+./tts article.md                # Read Markdown file
 ./tts book.epub                 # Read EPUB (skips front matter)
 ./tts report.pdf                # Read PDF (skips preface/TOC)
-./tts https://example.com       # Read web article (skips ads)
+./tts https://example.com       # Read web article (skips ads/JavaScript)
 ./tts -l ta -s slow "வணக்கம்"   # Tamil at slow speed
 cat notes.txt | ./tts -         # Read from stdin
 ```
+
+## Supported Formats
+
+| Format | Features |
+|--------|----------|
+| **PDF** | Skips table of contents, preface; starts from Chapter 1 |
+| **EPUB** | Skips front matter, dedication, table of contents |
+| **Markdown** | Strips formatting, preserves headings as pauses |
+| **Web pages** | Extracts main article, removes ads/nav, supports dynamic/JavaScript sites |
+| **Text files** | Plain text, UTF-8 encoded |
+| **Clipboard** | Speaks currently selected/highlighted text |
 
 ## Documentation
 

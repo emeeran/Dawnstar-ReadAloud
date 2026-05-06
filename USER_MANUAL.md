@@ -217,9 +217,11 @@ Detects the document open in the focused window and reads it from the beginning.
 | Typora | Title path extraction |
 | Kate / gedit | Title path extraction |
 
-**For URLs:** The content is fetched and extracted with ad/navigation removal (see [Content Extraction](#7-content-extraction)).
+**For URLs:** The content is fetched and extracting with ad/navigation removal. Supports both static HTML and dynamic JavaScript-rendered pages (via JSON-LD extraction).
 
 **For PDF/EPUB:** Front matter is automatically skipped (preface, TOC, copyright), starting from Chapter 1.
+
+**For Markdown:** Formatting is stripped (headers, bold, links, code blocks) while preserving readable text content.
 
 ### Speak Selection (Shift+Alt+C)
 
@@ -272,8 +274,7 @@ If automatic setup fails, configure manually:
 
 | Name | Command | Key |
 |------|---------|-----|
-| Speak from Cursor | `/path/to/Dawnstar-ReadAloud/speak_from_cursor.sh` | Shift+Alt+F |
-| Read Active Document | `/path/to/Dawnstar-ReadAloud/speak_active_doc.sh` | Shift+Alt+D |
+| Read Active Document | `/path/to/Dawnstar-ReadAloud/speak_active_doc.sh` | Shift+Alt+S |
 | Speak Selection | `/path/to/Dawnstar-ReadAloud/speak_selection.sh` | Shift+Alt+C |
 | Stop Speaking | `/path/to/Dawnstar-ReadAloud/stop_speaking.sh` | Shift+Alt+Q |
 
@@ -282,8 +283,7 @@ Replace `/path/to/Dawnstar-ReadAloud` with the actual installation path.
 **Sway — manual config:**
 
 ```
-bindsym Shift+Alt+f exec /path/to/speak_from_cursor.sh
-bindsym Shift+Alt+d exec /path/to/speak_active_doc.sh
+bindsym Shift+Alt+s exec /path/to/speak_active_doc.sh
 bindsym Shift+Alt+c exec /path/to/speak_selection.sh
 bindsym Shift+Alt+q exec /path/to/stop_speaking.sh
 ```
@@ -291,8 +291,7 @@ bindsym Shift+Alt+q exec /path/to/stop_speaking.sh
 **Hyprland — manual config:**
 
 ```
-bind = SHIFT ALT, f, exec, /path/to/speak_from_cursor.sh
-bind = SHIFT ALT, d, exec, /path/to/speak_active_doc.sh
+bind = SHIFT ALT, s, exec, /path/to/speak_active_doc.sh
 bind = SHIFT ALT, c, exec, /path/to/speak_selection.sh
 bind = SHIFT ALT, q, exec, /path/to/stop_speaking.sh
 ```
@@ -406,10 +405,10 @@ Interactive mode - 'quit' to exit
 |--------|--------|-------|
 | Direct text | `./tts "text"` | Multiple arguments are joined |
 | Text file | `./tts file.txt` | Plain text or Markdown |
-| PDF file | `./tts document.pdf` | Skips preface/TOC |
+| PDF file | `./tts document.pdf` | Skips preface/TOC, starts Chapter 1 |
 | EPUB file | `./tts book.epub` | Skips front matter |
-| URL | `./tts https://...` | Extracts main article content |
-| Stdin | `cat file | ./tts -` | Pipe content |
+| URL | `./tts https://...` | Extracts main article (static + dynamic sites) |
+| Stdin | `cat file \| ./tts -` | Pipe content |
 | Clipboard | `./tts --get-clipboard` | Prints clipboard text |
 
 ### File Format Support
@@ -417,10 +416,10 @@ Interactive mode - 'quit' to exit
 | Format | Extension | Dependencies | Features |
 |--------|-----------|--------------|----------|
 | Plain text | `.txt` | None | Direct reading |
-| Markdown | `.md` | None | Headers and links cleaned |
+| Markdown | `.md` | None | Headers, links, code cleaned |
 | PDF | `.pdf` | `pypdf` | Smart skip to Chapter 1 |
 | EPUB | `.epub` | `ebooklib`, `beautifulsoup4` | Smart skip past front matter |
-| Web pages | URL | `beautifulsoup4` | Ad-free article extraction |
+| Web pages | URL | `beautifulsoup4` | Ad-free article, JSON-LD support |
 
 ### Multiple Sources
 
