@@ -4,6 +4,7 @@ This module provides safe URL fetching and article content extraction
 with protection against malicious URLs and HTML parsing attacks.
 """
 
+import json
 import re
 import urllib.request
 from urllib.error import URLError
@@ -339,6 +340,60 @@ def _score_element(elem: Tag) -> float:
     return score
 
 
+def _extract_json_ld_article(soup: BeautifulSoup) -> str | None:
+    """Extract article text from JSON-LD structured data.
+    
+    Many news sites embed article content in JSON-LD schema.org markup.
+    This provides a fallback when the main content isn't in static HTML.
+    
+    Args:
+        soup: BeautifulSoup object.
+        
+    Returns:
+        Article text from JSON-LD, or None if not found.
+    """
+    import html
+    
+    for script in soup.find_all('script', type='application/ld+json'):
+        try:
+            data = json.loads(script.string)
+            # Handle NewsArticle schema
+            if isinstance(data, dict):
+                if data.get('@type') in ('NewsArticle', 'Article'):
+                    parts = []
+                    if data.get('headline'):
+                        parts.append(data['headline'])
+                    if data.get('description'):
+                        parts.append(data['description'])
+                    if data.get('articleBody'):
+                        parts.append(data['articleBody'])
+                    if parts:
+                        text = ' '.join(parts)
+                        # Unescape HTML entities and strip remaining HTML tags
+                        text = html.unescape(text)
+                        text = re.sub(r'<[^>]+>', '', text)  # Remove any HTML tags
+                        return text
+                # Handle nested @graph
+                if '@graph' in data:
+                    for item in data['@graph']:
+                        if isinstance(item, dict) and item.get('@type') in ('NewsArticle', 'Article'):
+                            parts = []
+                            if item.get('headline'):
+                                parts.append(item['headline'])
+                            if item.get('description'):
+                                parts.append(item['description'])
+                            if item.get('articleBody'):
+                                parts.append(item['articleBody'])
+                            if parts:
+                                text = ' '.join(parts)
+                                text = html.unescape(text)
+                                text = re.sub(r'<[^>]+>', '', text)
+                                return text
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            continue
+    return None
+
+
 def extract_url_content(url: str, timeout: int = 20, config: TTSConfig | None = None) -> str | None:
     """Fetch URL and extract main article content.
 
@@ -380,6 +435,12 @@ def extract_url_content(url: str, timeout: int = 20, config: TTSConfig | None = 
 
     # Parse HTML
     soup = BeautifulSoup(html, 'html.parser')
+
+    # Try JSON-LD structured data first (for dynamically loaded content)
+    json_ld_text = _extract_json_ld_article(soup)
+    if json_ld_text and len(json_ld_text) > _MIN_CONTENT_LENGTH:
+        Logger.log(f"Extracted from JSON-LD: {len(json_ld_text)} chars", config)
+        return json_ld_text
 
     # Clean HTML (remove ads, nav, etc.)
     soup = _clean_html_content(soup)
