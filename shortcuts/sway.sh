@@ -47,7 +47,7 @@ setup_sway() {
     mkdir -p "$config_dir"
 
     # Check if our shortcuts already exist
-    if grep -q "TTS: Speak From Cursor" "$config_file" 2>/dev/null; then
+    if grep -q "TTS: Speak Selected" "$config_file" 2>/dev/null; then
         echo "  Sway shortcuts already configured"
         return
     fi
@@ -57,10 +57,8 @@ setup_sway() {
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-# Shift+Alt+F: Speak from cursor position
-bindsym Shift+Alt+f exec $CMD_CURSOR
-# Shift+Alt+D: Read active document from beginning
-bindsym Shift+Alt+d exec $CMD_DOC
+# Shift+Alt+S: Read active document from beginning
+bindsym Shift+Alt+s exec $CMD_DOC
 # Shift+Alt+C: Speak selected text (clipboard)
 bindsym Shift+Alt+c exec $CMD_SELECTION
 # Shift+Alt+Q: Stop speaking
@@ -80,7 +78,7 @@ setup_hyprland() {
     mkdir -p "$config_dir"
 
     # Check if our shortcuts already exist
-    if grep -q "TTS: Speak From Cursor" "$config_file" 2>/dev/null; then
+    if grep -q "TTS: Speak Selected" "$config_file" 2>/dev/null; then
         echo "  Hyprland shortcuts already configured"
         return
     fi
@@ -90,10 +88,8 @@ setup_hyprland() {
 
 # TTS Keyboard Shortcuts
 # Added by TTS setup script
-# Shift+Alt+F: Speak from cursor position
-bind = SHIFT ALT, f, exec, $CMD_CURSOR
-# Shift+Alt+D: Read active document from beginning
-bind = SHIFT ALT, d, exec, $CMD_DOC
+# Shift+Alt+S: Read active document from beginning
+bind = SHIFT ALT, s, exec, $CMD_DOC
 # Shift+Alt+C: Speak selected text (clipboard)
 bind = SHIFT ALT, c, exec, $CMD_SELECTION
 # Shift+Alt+Q: Stop speaking
@@ -116,14 +112,12 @@ case "$COMPOSITOR" in
         echo "  Add these lines to your config:"
         echo ""
         echo "  For Sway:"
-        echo "    bindsym Shift+Alt+f exec $CMD_CURSOR"
-        echo "    bindsym Shift+Alt+d exec $CMD_DOC"
+        echo "    bindsym Shift+Alt+s exec $CMD_DOC"
         echo "    bindsym Shift+Alt+c exec $CMD_SELECTION"
         echo "    bindsym Shift+Alt+q exec $CMD_STOP"
         echo ""
         echo "  For Hyprland:"
-        echo "    bind = SHIFT ALT, f, exec, $CMD_CURSOR"
-        echo "    bind = SHIFT ALT, d, exec, $CMD_DOC"
+        echo "    bind = SHIFT ALT, s, exec, $CMD_DOC"
         echo "    bind = SHIFT ALT, c, exec, $CMD_SELECTION"
         echo "    bind = SHIFT ALT, q, exec, $CMD_STOP"
         ;;

@@ -31,14 +31,13 @@ for p in $CURRENT_PATHS; do
     fi
 done
 
-# 2. Our target shortcuts
+# 2. Define shortcuts to configure (Shift+Alt+S, C, Q)
 declare -A TARGETS
-TARGETS["TTS Speak From Cursor"]="$CMD_CURSOR|<Shift><Alt>f"
-TARGETS["TTS Read Active Document"]="$CMD_DOC|<Shift><Alt>d"
 TARGETS["TTS Speak Selected"]="$CMD_SELECTION|<Shift><Alt>c"
 TARGETS["TTS Stop Speaking"]="$CMD_STOP|<Shift><Alt>q"
+TARGETS["TTS Read Active Document"]="$CMD_DOC|<Shift><Alt>s"
 
-# 3. Update or Add
+# 4. Update or Add
 for NAME in "${!TARGETS[@]}"; do
     IFS='|' read -r CMD BINDING <<< "${TARGETS[$NAME]}"
     FOUND_PATH=""

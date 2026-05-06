@@ -54,14 +54,18 @@ add_shortcut() {
     echo "  Added '$name' at slot $slot ($shortcut)"
 }
 
-# Add all 4 shortcuts
-add_shortcut "$NEXT_SLOT" "Speak From Cursor" "$CMD_CURSOR" "Shift+Alt+f"
-add_shortcut "$((NEXT_SLOT + 1))" "Read Active Document" "$CMD_DOC" "Shift+Alt+d"
-add_shortcut "$((NEXT_SLOT + 2))" "Speak Selected" "$CMD_SELECTION" "Shift+Alt+c"
-add_shortcut "$((NEXT_SLOT + 3))" "Stop Speaking" "$CMD_STOP" "Shift+Alt+q"
+# Add all 3 shortcuts (Shift+Alt+S, C, Q)
+add_shortcut "$NEXT_SLOT" "Read Active Document" "$CMD_DOC" "Shift+Alt+s"
+add_shortcut "$((NEXT_SLOT + 1))" "Speak Selected" "$CMD_SELECTION" "Shift+Alt+c"
+add_shortcut "$((NEXT_SLOT + 2))" "Stop Speaking" "$CMD_STOP" "Shift+Alt+q"
 
 echo ""
 echo "XFCE shortcuts configured!"
 echo ""
 echo "Note: You may need to manually bind the keys in:"
 echo "  Settings > Keyboard > Application Shortcuts"
+echo ""
+echo "Shortcuts:"
+echo "  Shift+Alt+S - Read Active Document"
+echo "  Shift+Alt+C - Speak Selected"
+echo "  Shift+Alt+Q - Stop Speaking"

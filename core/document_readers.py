@@ -49,9 +49,12 @@ CHAPTER_PATTERNS = [
     r"^\s*part\s+(?:one|[\d\w]+)\b",
     r"^\s*introduction\b",
     r"^\s*book\s+(?:one|[\d\w]+)\b",
-    r"^\s*[\d]+\.\s+\w",
-    r"^\s*i\.\s+\w",
 ]
+
+# Stricter pattern for numbered chapters - requires substantial text, no trailing dots
+NUMBERED_CHAPTER_PATTERN = re.compile(r"^\s*[\d]+\.\s+[A-Z][^.]{20,}$")
+# Pattern to detect TOC-style trailing dots
+_TOC_DOTS_PATTERN = re.compile(r"\.\s+\.\s+\.")
 
 # Pre-compiled patterns for performance
 _COMPILED_FRONT_MATTER = [re.compile(p, re.IGNORECASE) for p in FRONT_MATTER_PATTERNS]
@@ -69,23 +72,45 @@ def _is_chapter_start(text: str) -> bool:
     return _find_chapter_line(text.splitlines()) >= 0
 
 
-def _find_chapter_line(lines: list[str], max_lines: int = 100) -> int:
+def _find_chapter_line(lines: list[str], max_lines: int = 20) -> int:
     """Find the first line that matches a chapter heading pattern.
 
     Args:
         lines: Lines of text to search.
-        max_lines: Maximum number of lines to check.
+        max_lines: Maximum number of lines to check (reduced to avoid false positives).
 
     Returns:
         Index of the first chapter-heading line, or -1 if not found.
     """
+    # Find first non-empty line
+    first_content_line = -1
     for index, line in enumerate(lines[:max_lines]):
-        line_stripped = line.strip().lower()
-        if not line_stripped:
-            continue
-        for pattern in _COMPILED_CHAPTER:
-            if pattern.match(line_stripped):
-                return index
+        if line.strip():
+            first_content_line = index
+            break
+    
+    if first_content_line < 0:
+        return -1
+    
+    first_line = lines[first_content_line].strip()
+    first_line_lower = first_line.lower()
+    
+    # Skip TOC-style lines
+    if _TOC_DOTS_PATTERN.search(first_line):
+        return -1
+    
+    # Check for explicit "CHAPTER X" format (case insensitive)
+    if re.match(r'^CHAPTER\s+[\d\w]+', first_line, re.IGNORECASE):
+        return first_content_line
+    
+    # Check for numbered chapter "1. Title" format (must be first line)
+    if NUMBERED_CHAPTER_PATTERN.match(first_line):
+        return first_content_line
+    
+    # Check for "Introduction" as first line (standalone)
+    if re.match(r'^introduction\s*$', first_line_lower):
+        return first_content_line
+    
     return -1
 
 
@@ -122,21 +147,73 @@ def _should_skip_initial_section(
     return word_count < 250
 
 
+def _has_toc_dotted_lines(page_text: str) -> bool:
+    """Detect if page has table of contents style dotted lines.
+
+    TOC pages have patterns like:
+    - "Chapter 1 ......... 10" (continuous dots)
+    - "Chapter 1 . . . . . . . . . . . . . 10" (spaced dots)
+    """
+    # Pattern 1: Continuous dots (5+)
+    continuous_dots = re.compile(r"\.{5,}")
+    # Pattern 2: Spaced dots (at least 6 dots with spaces between)
+    spaced_dots = re.compile(r"(?:\.\s*){6,}")
+
+    continuous_matches = continuous_dots.findall(page_text)
+    spaced_matches = spaced_dots.findall(page_text)
+
+    return len(continuous_matches) >= 2 or len(spaced_matches) >= 2
+
+
 def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
-    """Extract text from PDF pages, looking for the first chapter."""
+    """Extract text from PDF pages, looking for the first chapter.
+
+    Skips TOC, preface, and other front matter to start from Chapter 1.
+    """
     parts: list[str] = []
     content_start_page = 0
+    found_chapter = False
 
-    # Scan first few pages for chapter markers
+    # First pass: find the first real chapter (skip TOC, preface, etc.)
     for i in range(min(len(reader.pages), max_pages)):
         page_text = reader.pages[i].extract_text() or ""
+
+        # Skip pages with TOC-style dotted lines
+        if _has_toc_dotted_lines(page_text):
+            content_start_page = i + 1
+            continue
+
+        # Skip pages with very little text (title/copyright pages)
+        word_count = len(page_text.split())
+        if word_count < 150:
+            content_start_page = i + 1
+            continue
+
+        # Look for explicit chapter markers
         if _is_chapter_start(page_text):
             content_start_page = i
+            found_chapter = True
             break
 
-    # If no chapter marker found, default to skipping first few pages
-    if content_start_page == 0 and len(reader.pages) > 5:
-        content_start_page = min(3, len(reader.pages) // 10)
+        # If we find substantial content without chapter marker, 
+        # check if it looks like preface/intro vs actual chapter
+        if word_count >= 500:
+            # Check for preface indicators in first 500 chars
+            preview = page_text[:500].lower()
+            if any(indicator in preview for indicator in [
+                'preface', 'acknowled', 'foreword', 'introduction to this book',
+                'how to read', 'who should read', 'conventions used'
+            ]):
+                content_start_page = i + 1
+                continue
+            
+            # Found substantial non-chapter content, keep looking
+            if not found_chapter:
+                content_start_page = i + 1
+
+    # If no chapter found, default to skipping first 10% or 5 pages
+    if not found_chapter and len(reader.pages) > 5:
+        content_start_page = max(content_start_page, min(5, len(reader.pages) // 10))
 
     for page in reader.pages[content_start_page:]:
         page_text = page.extract_text() or ""

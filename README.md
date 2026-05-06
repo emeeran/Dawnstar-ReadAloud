@@ -34,8 +34,7 @@ python3 configure.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Shift+Alt+F` | Speak from cursor position |
-| `Shift+Alt+D` | Read active document (PDF, EPUB, URL) |
+| `Shift+Alt+S` | Read active document (PDF, EPUB, URL) |
 | `Shift+Alt+C` | Speak selected/highlighted text |
 | `Shift+Alt+Q` | Stop speaking |
 
