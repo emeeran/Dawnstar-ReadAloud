@@ -10,6 +10,7 @@ A lightweight, neural-network-based Text-to-Speech application for Linux with gl
 - **Source Detection** — Automatically detects the active window's file or URL
 - **Multiple Input Sources** — Files, PDFs, EPUBs, URLs, clipboard, stdin
 - **Smart Content Extraction** — Skips ads/front matter, reads main content
+- **Sentence Highlighting** — Visual notification shows current sentence being spoken
 - **Multi-Language** — US English, UK English, and Tamil
 - **Daemon Mode** — Low-latency background service for frequent use
 

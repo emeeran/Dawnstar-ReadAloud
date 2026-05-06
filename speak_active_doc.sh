@@ -7,11 +7,12 @@
 #   - PDF/EPUB: skip front matter, start from chapter 1
 #   - Text files: read from beginning
 #
-# Shortcut: Ctrl+Alt+D
+# Shortcut: Shift+Alt+S
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TTS_APP="$SCRIPT_DIR/tts"
 SOURCE_SCRIPT="$SCRIPT_DIR/get_active_source.py"
+OVERLAY_SCRIPT="$SCRIPT_DIR/sentence_overlay.py"
 STATE_DIR="/tmp/tts_cursor_state"
 SENTENCE_FILE="$STATE_DIR/current_sentence.txt"
 
@@ -35,37 +36,18 @@ if [ -f "$SOURCE_SCRIPT" ]; then
         echo "$(date) - Detected source: $SOURCE" >> /tmp/tts_debug.log
         notify "Reading: ${SOURCE##*/}"
 
+        # Start sentence overlay (visual highlighting)
+        if [ -f "$OVERLAY_SCRIPT" ]; then
+            python3 "$OVERLAY_SCRIPT" "$SENTENCE_FILE" &
+            OVERLAY_PID=$!
+            trap "kill $OVERLAY_PID 2>/dev/null" EXIT
+        fi
+
         # Launch TTS with the source for full content extraction
         (
             "$TTS_APP" --sentence-file "$SENTENCE_FILE" "$SOURCE" > /dev/null 2>&1
             rm -f "$SENTENCE_FILE"
         ) & disown
-
-        # Monitor sentence file for notifications
-        if command -v notify-send &> /dev/null; then
-            (
-                LAST_SENTENCE=""
-                while [ ! -f "$SENTENCE_FILE" ]; do
-                    sleep 0.1
-                    if ! pgrep -f "tts.*$SOURCE" > /dev/null 2>&1 && [ ! -f "$SENTENCE_FILE" ]; then
-                        exit 0
-                    fi
-                done
-
-                while [ -f "$SENTENCE_FILE" ] || pgrep -f "tts.*sentence-file" > /dev/null 2>&1; do
-                    if [ -f "$SENTENCE_FILE" ]; then
-                        CURRENT=$(cat "$SENTENCE_FILE" 2>/dev/null)
-                        if [ -n "$CURRENT" ] && [ "$CURRENT" != "$LAST_SENTENCE" ]; then
-                            LAST_SENTENCE="$CURRENT"
-                            notify-send "TTS Speaking" "${CURRENT:0:100}$([ ${#CURRENT} -gt 100 ] && echo '...')" -t 5000 -r 12345 2>/dev/null
-                        fi
-                    fi
-                    sleep 0.2
-                done
-
-                notify-send "TTS" "Finished speaking" -t 1500 -r 12345 2>/dev/null
-            ) & disown
-        fi
 
         exit 0
     fi
