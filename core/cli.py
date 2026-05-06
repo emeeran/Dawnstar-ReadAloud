@@ -7,7 +7,6 @@ argparse CLI for the TTS application.
 import argparse
 import time
 from concurrent.futures import ThreadPoolExecutor
-from enum import StrEnum
 
 from app_config import TTSAppConfig, generate_sample_config
 
@@ -20,14 +19,6 @@ from .logger import Logger
 from .platform import get_clipboard_text, supports_ansi_colors
 from .player import AudioPlayer
 from .runtime import CacheManager, NotificationManager
-
-
-class SpeedChoice(StrEnum):
-    """Speech speed options."""
-
-    SLOW = "slow"
-    NORMAL = "normal"
-    FAST = "fast"
 
 
 class PlaybackController:

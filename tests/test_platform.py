@@ -122,7 +122,6 @@ class TestDetectEngines:
         assert "edge" in engines
         assert "gtts" in engines
         assert "espeak" in engines
-        assert "piper" in engines
 
     @patch("importlib.util.find_spec")
     def test_edge_tts_available(self, mock_find_spec):

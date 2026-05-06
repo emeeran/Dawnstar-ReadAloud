@@ -82,35 +82,27 @@ def _find_chapter_line(lines: list[str], max_lines: int = 20) -> int:
     Returns:
         Index of the first chapter-heading line, or -1 if not found.
     """
-    # Find first non-empty line
-    first_content_line = -1
     for index, line in enumerate(lines[:max_lines]):
-        if line.strip():
-            first_content_line = index
-            break
-    
-    if first_content_line < 0:
-        return -1
-    
-    first_line = lines[first_content_line].strip()
-    first_line_lower = first_line.lower()
-    
-    # Skip TOC-style lines
-    if _TOC_DOTS_PATTERN.search(first_line):
-        return -1
-    
-    # Check for explicit "CHAPTER X" format (case insensitive)
-    if re.match(r'^CHAPTER\s+[\d\w]+', first_line, re.IGNORECASE):
-        return first_content_line
-    
-    # Check for numbered chapter "1. Title" format (must be first line)
-    if NUMBERED_CHAPTER_PATTERN.match(first_line):
-        return first_content_line
-    
-    # Check for "Introduction" as first line (standalone)
-    if re.match(r'^introduction\s*$', first_line_lower):
-        return first_content_line
-    
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Skip TOC-style lines
+        if _TOC_DOTS_PATTERN.search(stripped):
+            continue
+
+        # Check for explicit "CHAPTER X" format (case insensitive)
+        if re.match(r'^CHAPTER\s+[\d\w]+', stripped, re.IGNORECASE):
+            return index
+
+        # Check for numbered chapter "1. Title" format
+        if NUMBERED_CHAPTER_PATTERN.match(stripped):
+            return index
+
+        # Check for "Introduction" as standalone heading
+        if re.match(r'^introduction\s*$', stripped.lower()):
+            return index
+
     return -1
 
 
@@ -195,7 +187,7 @@ def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
             found_chapter = True
             break
 
-        # If we find substantial content without chapter marker, 
+        # If we find substantial content without chapter marker,
         # check if it looks like preface/intro vs actual chapter
         if word_count >= 500:
             # Check for preface indicators in first 500 chars
@@ -206,7 +198,7 @@ def _extract_pdf_text(reader: object, max_pages: int = 50) -> tuple[str, int]:
             ]):
                 content_start_page = i + 1
                 continue
-            
+
             # Found substantial non-chapter content, keep looking
             if not found_chapter:
                 content_start_page = i + 1

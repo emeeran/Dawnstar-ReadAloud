@@ -406,9 +406,5 @@ class TTSEngine:
         Returns:
             Dictionary mapping engine names to availability status.
         """
-        edge_available = EdgeTTSBackend(TTSConfig()).is_available()
-        return {
-            "edge": edge_available,
-            "gtts": True,  # gtts is a required dependency
-            "espeak": shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None,
-        }
+        from .platform import detect_available_engines
+        return detect_available_engines()

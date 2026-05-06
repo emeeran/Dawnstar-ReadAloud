@@ -44,9 +44,8 @@ docker run --rm -i --device /dev/snd dawnstar-readaloud "Hello world"
 ```
 dawnstar-readaloud/
 ├── app.py              # Main entry point
-├── config.py           # Application configuration (YAML-based)
+├── app_config.py       # Application configuration (YAML-based)
 ├── configure.py        # System integration setup
-├── tts_platform.py     # [DEPRECATED] Backward compatibility wrapper
 ├── core/               # Core TTS modules
 │   ├── __init__.py     # Package exports
 │   ├── cli.py          # Command-line interface

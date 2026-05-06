@@ -25,7 +25,7 @@ _RE_MD_NUM_LIST_MARKER = re.compile(r"^\s*\d+\.\s+", re.MULTILINE)
 
 def strip_markdown(text: str) -> str:
     """Remove common Markdown symbols while preserving readable text content.
-    
+
     Converts Markdown to spoken-friendly format:
     - Headers: Add pause indicator (preserved as natural break)
     - Bold/italic: Remove markers, keep text
@@ -35,32 +35,34 @@ def strip_markdown(text: str) -> str:
     """
     # Convert headers to plain text with spacing (preserves structure for pauses)
     text = _RE_MD_HEADER.sub(lambda m: "\n" + " ".join(m.group(0).lstrip("# ").split()) + "\n", text)
-    
+
     # Remove image markup entirely (not useful for TTS)
     text = _RE_MD_IMAGE.sub("", text)
-    
+
     # Convert links to just the link text
     text = _RE_MD_LINK.sub(r"\1", text)
-    
+
     # Remove code blocks but preserve content
-    text = _RE_MD_CODE_BLOCK.sub(lambda m: m.group(0).strip("```") + "\n", text)
-    
+    text = _RE_MD_CODE_BLOCK.sub(
+        lambda m: m.group(0).removeprefix("```").removesuffix("```").strip() + "\n", text
+    )
+
     # Remove inline code backticks
     text = _RE_MD_INLINE_CODE.sub(r"\1", text)
-    
+
     # Remove bold/italic markers
     text = _RE_MD_BOLD_ITALIC.sub("", text)
-    
+
     # Remove list markers
     text = _RE_MD_LIST_MARKER.sub("", text)
     text = _RE_MD_NUM_LIST_MARKER.sub("", text)
-    
+
     return text
 
 
 def clean_text(text: str) -> str:
     """Remove Markdown symbols, URLs/emails, and normalize whitespace.
-    
+
     Normalizes whitespace for smooth TTS:
     - Collapses multiple spaces/tabs to single space
     - Converts newlines to space (fixes PDF line breaks and markdown)
@@ -71,7 +73,7 @@ def clean_text(text: str) -> str:
     # Then strip "naked" URLs and Emails
     text = _RE_URL.sub("", text)
     text = _RE_EMAIL.sub("", text)
-    
+
     # Collapse all whitespace (newlines, tabs, multiple spaces) to single space
     text = _RE_WHITESPACE.sub(" ", text)
 

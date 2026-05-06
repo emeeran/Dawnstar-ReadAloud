@@ -342,18 +342,18 @@ def _score_element(elem: Tag) -> float:
 
 def _extract_json_ld_article(soup: BeautifulSoup) -> str | None:
     """Extract article text from JSON-LD structured data.
-    
+
     Many news sites embed article content in JSON-LD schema.org markup.
     This provides a fallback when the main content isn't in static HTML.
-    
+
     Args:
         soup: BeautifulSoup object.
-        
+
     Returns:
         Article text from JSON-LD, or None if not found.
     """
     import html
-    
+
     for script in soup.find_all('script', type='application/ld+json'):
         try:
             data = json.loads(script.string)

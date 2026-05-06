@@ -211,38 +211,6 @@ class TTSAppConfig:
         except OSError:
             return False
 
-    @classmethod
-    def validate_value(cls, key: str, value: Any) -> tuple[bool, str]:
-        """Validate a single configuration value.
-
-        Args:
-            key: Configuration key to validate.
-            value: Value to validate.
-
-        Returns:
-            Tuple of (is_valid, error_message).
-        """
-        try:
-            if key == "language":
-                if value not in VALID_LANGUAGES:
-                    return False, f"Must be one of: {', '.join(sorted(VALID_LANGUAGES - {None}))}"
-            elif key == "speed":
-                if value not in VALID_SPEEDS:
-                    return False, f"Must be one of: {', '.join(sorted(VALID_SPEEDS))}"
-            elif key == "cache_max_size_mb":
-                if not isinstance(value, int) or not CACHE_SIZE_MIN_MB <= value <= CACHE_SIZE_MAX_MB:
-                    return False, f"Must be between {CACHE_SIZE_MIN_MB} and {CACHE_SIZE_MAX_MB} MB"
-            elif key == "default_engine":
-                if value not in VALID_ENGINES:
-                    return False, "Must be one of: edge, gtts, espeak, or null"
-            elif key in ("cache_enabled", "verbose", "notifications", "progress") and not isinstance(value, bool):
-                return False, "Must be a boolean value"
-
-            return True, ""
-        except Exception as e:
-            return False, str(e)
-
-
 def generate_sample_config() -> str:
     """Generate a sample configuration file content.
 

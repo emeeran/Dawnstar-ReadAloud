@@ -380,7 +380,6 @@ def detect_available_engines() -> dict:
     """
     engines = {
         "edge": False,
-        "piper": False,
         "gtts": False,
         "espeak": False,
     }
@@ -390,9 +389,6 @@ def detect_available_engines() -> dict:
     engines["gtts"] = importlib.util.find_spec("gtts") is not None
 
     # Check binaries
-    if shutil.which("piper"):
-        engines["piper"] = True
-
     if shutil.which("espeak") or shutil.which("espeak-ng"):
         engines["espeak"] = True
 

@@ -10,16 +10,12 @@ import contextlib
 import queue
 import signal
 import subprocess
-import sys
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-# Import from parent module
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core import (
     LANG_CONFIG,

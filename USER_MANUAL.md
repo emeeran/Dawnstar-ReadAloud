@@ -435,27 +435,30 @@ Multiple positional arguments are combined into a single text:
 
 ### Web Content (URLs)
 
-When you provide a URL or press **Shift+Alt+D** with a browser focused, the application extracts the main article content:
+When you provide a URL or press **Shift+Alt+S** with a browser focused, the application extracts the main article content:
 
-1. **Ad removal** — Decomposes ad containers, banners, and overlays
-2. **Navigation cleanup** — Removes headers, footers, sidebars, and widgets
-3. **Main content detection** — Identifies the article body using semantic HTML tags (`<article>`, `<main>`, ARIA roles) and content-scoring heuristics
-4. **Formatting** — Preserves headings, paragraphs, and blockquotes
+1. **JSON-LD extraction** (dynamic sites) — Extracts `articleBody` from schema.org structured data for JavaScript-rendered pages (news sites like Deccan Herald, etc.)
+2. **Ad removal** — Decomposes ad containers, banners, and overlays
+3. **Navigation cleanup** — Removes headers, footers, sidebars, and widgets
+4. **Main content detection** — Identifies the article body using semantic HTML tags (`<article>`, `<main>`, ARIA roles) and content-scoring heuristics
+5. **Formatting** — Preserves headings, paragraphs, and blockquotes
 
 ```bash
-./tts https://en.wikipedia.org/wiki/Text-to-speech
+./tts https://www.deccanherald.com/...    # Dynamic JavaScript site
+./tts https://en.wikipedia.org/wiki/...   # Static HTML site
 ```
 
 ### PDF Content
 
 PDF files are processed with smart content detection:
 
-1. Scans the first 50 pages for chapter headings or introduction markers
-2. Skips preface, table of contents, copyright pages
-3. Starts reading from the first significant chapter
+1. **TOC detection** — Identifies table of contents pages by dotted leader lines
+2. **Chapter detection** — Finds "CHAPTER 1" or numbered headings at page start
+3. **Preface skip** — Detects preface/acknowledgments by keywords
+4. **Start from Chapter 1** — Begins reading from actual chapter content
 
 ```bash
-./tts report.pdf    # Skips to Chapter 1
+./tts report.pdf    # Skips TOC, preface, starts Chapter 1
 ```
 
 ### EPUB Content
@@ -463,11 +466,25 @@ PDF files are processed with smart content detection:
 EPUB files are processed similarly:
 
 1. Scans internal sections for front matter patterns
-2. Skips title pages, TOC, copyright, dedications
+2. Skips title pages, TOC, copyright, dedications, prologue
 3. Starts reading from the first content chapter
 
 ```bash
 ./tts novel.epub    # Starts from Chapter 1
+```
+
+### Markdown Content
+
+Markdown files are cleaned for natural speech:
+
+1. **Headers** — Removes `#` symbols, preserves text
+2. **Links** — Keeps link text, removes URLs: `[text](url)` → `text`
+3. **Code** — Removes backticks: `` `code` `` → `code`
+4. **Lists** — Removes bullets: `- item` → `item`
+5. **Bold/italic** — Removes markers: `**bold**` → `bold`
+
+```bash
+./tts README.md     # Strips formatting, reads content
 ```
 
 ### Text Cleaning
@@ -476,9 +493,10 @@ All input sources receive automatic text cleaning:
 
 - URLs removed (`https://...`)
 - Email addresses removed (`user@example.com`)
-- Excess whitespace collapsed
+- Excess whitespace collapsed (newlines, tabs → single space)
 - Common PDF artifacts cleaned
-- Markdown headers and links simplified
+- Markdown formatting simplified
+- HTML tags stripped (from JSON-LD extraction)
 
 ### Text Chunking
 
@@ -488,6 +506,19 @@ Long texts are split into chunks for processing:
 - Splits at `.`, `!`, `?`, `;`, `:`, `,`
 - Preserves natural speech rhythm
 - Enables per-chunk caching
+
+### Sentence Highlighting
+
+When reading documents (Shift+Alt+S), a desktop notification shows the current sentence being spoken:
+
+- **Auto-starts** with document reading
+- **Updates** as each new sentence is spoken
+- **Replaces** previous notification (no spam)
+- **Auto-closes** when finished
+
+**Requirements:** `libnotify-bin` package (installed by default on Ubuntu/Debian)
+
+**Disable:** Close the notification manually or kill the overlay process
 
 ---
 
