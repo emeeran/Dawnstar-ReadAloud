@@ -7,6 +7,7 @@ speech synthesis.
 """
 
 import contextlib
+import logging
 import queue
 import signal
 import subprocess
@@ -28,6 +29,8 @@ from core import (
 )
 
 from . import SOCKET_PATH
+
+_log = logging.getLogger("tts.daemon")
 
 
 class DaemonState(Enum):
@@ -282,8 +285,7 @@ class TTSDaemon:
         except Exception as e:
             # Catch-all for unexpected errors, but log them properly
             job.status = f"error: {str(e)}"
-            if self.config.verbose:
-                print(f"Unexpected error in job {job.job_id}: {type(e).__name__}: {e}")
+            _log.error("Unexpected error in job %d: %s: %s", job.job_id, type(e).__name__, e)
             return False
         finally:
             if self.on_job_complete:
@@ -313,7 +315,8 @@ class TTSDaemon:
                     continue
 
                 if cmd.action == "speak":
-                    job = self.jobs.get(cmd.job_id)
+                    with self._lock:
+                        job = self.jobs.get(cmd.job_id)
                     if job:
                         self._process_job(job)
                     self._set_state(DaemonState.IDLE)
@@ -333,24 +336,22 @@ class TTSDaemon:
             except (queue.Empty, KeyboardInterrupt):
                 continue
             except (OSError, RuntimeError) as e:
-                if self.config.verbose:
-                    print(f"Daemon error: {e}")
+                _log.error("Daemon error: %s", e)
             except Exception as e:
                 # Log unexpected errors but keep daemon running
-                if self.config.verbose:
-                    print(f"Unexpected daemon error: {type(e).__name__}: {e}")
+                _log.error("Unexpected daemon error: %s: %s", type(e).__name__, e)
 
     def _cleanup_jobs(self) -> None:
         """Remove old completed jobs to prevent unbounded memory growth."""
-        completed_ids = [
-            jid for jid, job in self.jobs.items()
-            if job.status in ("completed", "cancelled")
-        ]
-        if len(completed_ids) > self.MAX_JOB_HISTORY:
-            # Remove oldest completed jobs beyond the limit
-            completed_ids.sort()
-            for jid in completed_ids[:-self.MAX_JOB_HISTORY]:
-                del self.jobs[jid]
+        with self._lock:
+            completed_ids = [
+                jid for jid, job in self.jobs.items()
+                if job.status in ("completed", "cancelled")
+            ]
+            if len(completed_ids) > self.MAX_JOB_HISTORY:
+                completed_ids.sort()
+                for jid in completed_ids[:-self.MAX_JOB_HISTORY]:
+                    del self.jobs[jid]
 
     def shutdown(self) -> None:
         """Gracefully shutdown the daemon."""

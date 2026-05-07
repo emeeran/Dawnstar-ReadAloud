@@ -14,11 +14,13 @@ Performance optimizations:
 import asyncio
 import hashlib
 import importlib.util
+import logging
 import os
 import shutil
 import subprocess
 import tempfile
 import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -34,11 +36,38 @@ from .constants import (
 )
 from .logger import Logger
 
+_log = logging.getLogger("tts")
+
 # Performance: Timeout for audio generation (seconds)
 AUDIO_GENERATION_TIMEOUT = 60
 
 # Documented limit for text length
 MAX_TEXT_LENGTH = 50000  # Maximum characters per TTS request
+
+# Rate limiting defaults
+_RATE_LIMIT_CALLS = 5
+_RATE_LIMIT_WINDOW = 10.0
+
+
+class _RateLimiter:
+    """Simple sliding-window rate limiter for TTS API calls."""
+
+    def __init__(self, max_calls: int = _RATE_LIMIT_CALLS, window: float = _RATE_LIMIT_WINDOW) -> None:
+        self._max_calls = max_calls
+        self._window = window
+        self._timestamps: list[float] = []
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        """Block until an API call slot is available."""
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                self._timestamps = [t for t in self._timestamps if now - t < self._window]
+                if len(self._timestamps) < self._max_calls:
+                    self._timestamps.append(now)
+                    return
+            time.sleep(0.5)
 
 
 class TTSBackend(ABC):
@@ -325,6 +354,7 @@ class TTSEngine:
     """
 
     BACKEND_CLASSES = [EdgeTTSBackend, GTTSBackend, EspeakBackend]
+    _rate_limiter = _RateLimiter()
 
     def __init__(self, config: TTSConfig) -> None:
         """Initialize TTS engine.
@@ -380,6 +410,9 @@ class TTSEngine:
             Logger.log("Cache hit", self.config)
             return cache_file.read_bytes()
 
+        # Rate-limit API calls (not cache reads)
+        self._rate_limiter.acquire()
+
         # Try each backend in priority order
         for backend in self.backends:
             try:
@@ -392,8 +425,7 @@ class TTSEngine:
                 return data
 
             except (TimeoutError, subprocess.CalledProcessError, OSError, RuntimeError, subprocess.TimeoutExpired) as error:
-                if self.config.verbose:
-                    print(f"  Backend {backend.get_name()} failed: {error}")
+                _log.warning("Backend %s failed: %s", backend.get_name(), error)
                 continue
 
         # All backends failed

@@ -7,6 +7,7 @@ This module handles persistent user configuration with:
 - Hot-reload support (file change detection)
 """
 
+import logging
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,8 @@ from typing import Any
 import yaml
 
 from core.exceptions import ConfigurationError
+
+_log = logging.getLogger("tts")
 
 # Configuration file locations
 CONFIG_DIR = Path.home() / ".config" / "tts"
@@ -148,8 +151,7 @@ class TTSAppConfig:
 
         except ConfigurationError as e:
             # Validation failed - log and use defaults
-            print(f"Configuration validation error: {e}")
-            print("Using default configuration.")
+            _log.warning("Configuration validation error: %s. Using defaults.", e)
             return cls(_source="defaults (validation error)")
 
         except (OSError, yaml.YAMLError):

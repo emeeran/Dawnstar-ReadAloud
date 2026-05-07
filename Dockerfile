@@ -19,6 +19,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install ONLY essential runtime packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     alsa-utils \
+    mpg123 \
     poppler-utils \
     espeak-ng \
     xclip \
@@ -26,20 +27,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+# Create non-root user for security
+RUN groupadd -r tts && useradd -r -g tts -m -d /home/tts tts
+
+# Copy Python packages from builder and fix ownership
+COPY --from=builder /root/.local /home/tts/.local
+RUN chown -R tts:tts /home/tts/.local
+ENV PATH=/home/tts/.local/bin:$PATH
 
 WORKDIR /app
 COPY app.py .
 
-# Create cache directory
-RUN mkdir -p /root/.cache/tts_app
+# Create cache directory owned by tts user
+RUN mkdir -p /home/tts/.cache/tts_app && chown -R tts:tts /home/tts/.cache/tts_app
 
-# Verify setup
-RUN echo "=== TTS Setup Verification ===" && \
-    echo "EdgeTTS: $(edge-tts --version 2>/dev/null || echo 'not found')" && \
-    echo "espeak: $(espeak --version 2>/dev/null || echo 'not found')" && \
-    echo "mpg123: $(mpg123 --version 2>/dev/null | head -1 || echo 'not found')"
+# Health check: verify espeak-ng is functional
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD espeak-ng --version || exit 1
+
+# Switch to non-root user
+USER tts
 
 ENTRYPOINT ["python", "app.py"]

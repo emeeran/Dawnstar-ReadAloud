@@ -1,18 +1,23 @@
 """Logging helpers."""
 
+import logging
+
 from .config import TTSConfig
+
+# Module-level logger for production use
+log = logging.getLogger("tts")
 
 
 class Logger:
-    """Simple verbose logger."""
+    """Simple verbose logger (backward-compatible facade)."""
 
     @staticmethod
     def log(msg: str, config: TTSConfig) -> None:
         """Log message if verbose mode is enabled."""
         if config.verbose:
-            print(f"✓ {msg}")
+            log.info(msg)
 
     @staticmethod
     def error(msg: str) -> None:
         """Log error message."""
-        print(f"✗ {msg}")
+        log.error(msg)

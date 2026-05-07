@@ -1,5 +1,6 @@
 """Audio playback helpers."""
 
+import logging
 import os
 import shutil
 import subprocess
@@ -8,6 +9,8 @@ import tempfile
 from .config import TTSConfig
 from .constants import TEMP_FILE_SUFFIX
 from .logger import Logger
+
+_log = logging.getLogger("tts")
 
 
 class AudioPlayer:
@@ -65,14 +68,14 @@ class AudioPlayer:
                     capture_output=True,
                 )
                 if process.stderr and config.verbose:
-                    print(process.stderr.decode(errors="ignore"))
+                    _log.debug("mpg123 stderr: %s", process.stderr.decode(errors="ignore"))
                 return True
 
             return cls._play_with_temp_file(cmd, audio_data)
         except subprocess.CalledProcessError as error:
             Logger.error(f"Playback error: {error}")
             if error.stderr:
-                print(f"  stderr: {error.stderr.decode(errors='ignore')}")
+                _log.debug("Playback stderr: %s", error.stderr.decode(errors="ignore"))
             return False
         except subprocess.TimeoutExpired:
             Logger.error("Playback timeout")

@@ -3,6 +3,25 @@ services:
     build: .
     image: tts-neural:latest
     container_name: tts-app
+    restart: unless-stopped
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 128M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "espeak-ng", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
     # Audio device access
     devices:
@@ -12,7 +31,10 @@ services:
     volumes:
       - ${HOME}/Documents:/docs:ro
       - ${HOME}/Downloads:/downloads:ro
-      - ${HOME}/.cache/tts_app:/root/.cache/tts_app
+      - tts-cache:/home/tts/.cache/tts_app
 
     stdin_open: true
     tty: true
+
+volumes:
+  tts-cache:
